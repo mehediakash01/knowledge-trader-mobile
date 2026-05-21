@@ -45,3 +45,36 @@ export interface ISkillPostListResponse {
   meta: ISkillPostPaginationMeta;
   data: ISkillPost[];
 }
+
+export interface ITradePostSummary {
+  id: string;
+  title: string;
+  slug?: string;
+  tokenPrice?: number;
+}
+
+export interface ITradeUserSummary {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+export interface IBarterRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  skillOfferedId?: string;
+  skillRequestedId?: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  skillOffered?: ITradePostSummary;
+  skillRequested?: ITradePostSummary;
+  sender?: ITradeUserSummary;
+  receiver?: ITradeUserSummary;
+  createdAt?: string;
+  message?: string;
+}
+
+export interface IMyTradesResponse {
+  sentBarters: IBarterRequest[];
+  receivedBarters: IBarterRequest[];
+}

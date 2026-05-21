@@ -1,4 +1,5 @@
 import { baseApi } from "./baseApi";
+import type { IApiResponse, IMyTradesResponse } from "../../types";
 
 export interface ICreateBarterRequestPayload {
   targetPostId: string;
@@ -16,7 +17,23 @@ export const tradeApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Trades", "Barters", "trade", "skillPost", "notification"],
     }),
+    getMyTrades: builder.query<IMyTradesResponse, void>({
+      query: () => ({
+        url: "/trades/my-trades",
+        method: "GET",
+      }),
+      transformResponse: (response: IApiResponse<IMyTradesResponse>) => response.data,
+      providesTags: ["Trades", "Barters", "trade"],
+    }),
+    updateBarterStatus: builder.mutation<void, { barterId: string; action: "ACCEPT" | "DECLINE" }>({
+      query: ({ barterId, ...payload }) => ({
+        url: `/trades/barter-requests/${barterId}/resolve`,
+        method: "PATCH",
+        body: payload,
+      }),
+      invalidatesTags: ["Trades", "Barters", "trade", "skillPost", "notification"],
+    }),
   }),
 });
 
-export const { useCreateBarterRequestMutation } = tradeApi;
+export const { useCreateBarterRequestMutation, useGetMyTradesQuery, useUpdateBarterStatusMutation } = tradeApi;
