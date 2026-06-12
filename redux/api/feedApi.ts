@@ -3,15 +3,24 @@ import type { ISkillPostListResponse, IApiResponse, ISkillPost, ISkillPostPagina
 
 export const feedApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getFeed: builder.query<ISkillPostListResponse, void>({
-      query: () => ({
+    getAllSkillPosts: builder.query<ISkillPostListResponse, any>({
+      query: (params) => ({
         url: "/skill-posts",
         method: "GET",
+        params: params || undefined,
       }),
       transformResponse: (response: IApiResponse<ISkillPost[]>) => ({
         meta: response.meta as ISkillPostPaginationMeta,
         data: response.data,
       }),
+      providesTags: ["SkillPosts"],
+    }),
+    getCategories: builder.query<string[], void>({
+      query: () => ({
+        url: "/skill-posts/categories",
+        method: "GET",
+      }),
+      transformResponse: (response: IApiResponse<string[]>) => response.data,
       providesTags: ["SkillPosts"],
     }),
     getSkillPostById: builder.query<ISkillPost, string>({
@@ -37,4 +46,4 @@ export const feedApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetFeedQuery, useGetSkillPostByIdQuery, useGetMySkillsQuery } = feedApi;
+export const { useGetAllSkillPostsQuery, useGetCategoriesQuery, useGetSkillPostByIdQuery, useGetMySkillsQuery } = feedApi;

@@ -47,7 +47,7 @@ export default function RootLayout() {
 import { getAccessToken } from '../services/auth.service';
 import { useRouter } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
