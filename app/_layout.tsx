@@ -44,8 +44,42 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+import { getAccessToken } from '../services/auth.service';
+import { useRouter } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
+import { useState, useEffect } from 'react';
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/login');
+        }
+      } catch (e) {
+        router.replace('/login');
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    // Wait a tick for layout to mount before navigating
+    setTimeout(() => checkAuth(), 100);
+  }, []);
+
+  if (isChecking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#121212', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4ade80" />
+      </View>
+    );
+  }
 
   return (
     <Provider store={store}>
