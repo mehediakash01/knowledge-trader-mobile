@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Image, Modal, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { useGetMeQuery } from '../../redux/api/authApi';
 import { useGetMySkillsQuery } from '../../redux/api/feedApi';
+import { useGetTransactionHistoryQuery, usePurchaseTokensMutation } from '../../redux/api/walletApi';
 import { clearAuthStorage } from '../../services/auth.service';
 import { logout } from '../../redux/features/auth/authSlice';
 import type { ISkillPost } from '../../types';
@@ -11,16 +12,32 @@ import type { ISkillPost } from '../../types';
 export default function ProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   
   const { data: user, isLoading: isLoadingUser } = useGetMeQuery();
   const { data: mySkillsData, isLoading: isLoadingSkills, refetch, isFetching } = useGetMySkillsQuery(user?.id as string, {
     skip: !user?.id,
   });
 
+  const { data: transactions, isLoading: isLoadingTransactions } = useGetTransactionHistoryQuery(undefined, {
+    skip: !isWalletOpen, // Only fetch when wallet is open
+  });
+  
+  const [purchaseTokens, { isLoading: isPurchasing }] = usePurchaseTokensMutation();
+
   const handleLogout = async () => {
     await clearAuthStorage();
     dispatch(logout());
     router.replace('/login');
+  };
+
+  const handlePurchase = async () => {
+    try {
+      await purchaseTokens({ amount: 100 }).unwrap();
+      // Normally we'd show a success toast here
+    } catch (e) {
+      // Error handling
+    }
   };
 
   const renderItem = ({ item }: { item: ISkillPost }) => (
@@ -38,6 +55,23 @@ export default function ProfileScreen() {
       <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
       <Text style={styles.price}>{item.tokenPrice} KT</Text>
     </TouchableOpacity>
+  );
+
+  const renderTransaction = ({ item }: { item: any }) => (
+    <View style={styles.transactionCard}>
+      <View style={styles.txLeft}>
+        <View style={[styles.txIconContainer, item.type === 'CREDIT' ? styles.txCreditIcon : styles.txDebitIcon]}>
+          <Text style={styles.txIconText}>{item.type === 'CREDIT' ? '↓' : '↑'}</Text>
+        </View>
+        <View>
+          <Text style={styles.txDesc}>{item.description || 'Token Transfer'}</Text>
+          <Text style={styles.txDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+        </View>
+      </View>
+      <Text style={[styles.txAmount, item.type === 'CREDIT' ? styles.txCreditText : styles.txDebitText]}>
+        {item.type === 'CREDIT' ? '+' : '-'}{item.amount} KT
+      </Text>
+    </View>
   );
 
   if (isLoadingUser) {
@@ -72,10 +106,11 @@ export default function ProfileScreen() {
 
       {/* Balance / Stats */}
       <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Balance</Text>
+        <TouchableOpacity style={[styles.statBox, styles.walletBox]} onPress={() => setIsWalletOpen(true)}>
+          <Text style={styles.statLabel}>Token Wallet</Text>
           <Text style={styles.statValue}>{user?.ktBalance || 0} KT</Text>
-        </View>
+          <Text style={styles.walletHint}>Tap to view details</Text>
+        </TouchableOpacity>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Reputation</Text>
           <Text style={styles.statValue}>{user?.reputationScore || 0}</Text>
@@ -101,6 +136,47 @@ export default function ProfileScreen() {
           />
         )}
       </View>
+
+      {/* Wallet Modal Sheet */}
+      <Modal visible={isWalletOpen} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Token Wallet</Text>
+              <TouchableOpacity onPress={() => setIsWalletOpen(false)} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.walletHero}>
+              <Text style={styles.walletHeroLabel}>Current Balance</Text>
+              <Text style={styles.walletHeroValue}>{user?.ktBalance || 0} <Text style={styles.walletHeroCurrency}>KT</Text></Text>
+            </View>
+
+            <View style={styles.walletActions}>
+              <TouchableOpacity style={styles.actionBtnPrimary} onPress={handlePurchase} disabled={isPurchasing}>
+                {isPurchasing ? <ActivityIndicator color="#000" /> : <Text style={styles.actionBtnPrimaryText}>Buy Tokens</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtnSecondary}>
+                <Text style={styles.actionBtnSecondaryText}>Exchange</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.txSectionTitle}>Recent Transactions</Text>
+            {isLoadingTransactions ? (
+              <ActivityIndicator color="#4ade80" style={{ marginTop: 20 }} />
+            ) : (
+              <FlatList
+                data={transactions || []}
+                keyExtractor={(item, index) => item.id || String(index)}
+                renderItem={renderTransaction}
+                contentContainerStyle={styles.txList}
+                ListEmptyComponent={<Text style={styles.emptyText}>No recent transactions.</Text>}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -185,6 +261,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333333',
   },
+  walletBox: {
+    borderColor: '#4ade80',
+    backgroundColor: 'rgba(74, 222, 128, 0.05)',
+  },
+  walletHint: {
+    fontSize: 10,
+    color: '#4ade80',
+    marginTop: 6,
+    opacity: 0.8,
+  },
   statLabel: {
     color: '#a0a0a0',
     fontSize: 12,
@@ -192,7 +278,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   statValue: {
-    color: '#4ade80',
+    color: '#ffffff',
     fontSize: 24,
     fontWeight: '900',
   },
@@ -255,5 +341,161 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
     fontSize: 16,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '85%',
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  closeButton: {
+    padding: 8,
+    backgroundColor: '#333',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  walletHero: {
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    padding: 32,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#333',
+    marginBottom: 24,
+  },
+  walletHeroLabel: {
+    color: '#a0a0a0',
+    fontSize: 14,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  walletHeroValue: {
+    color: '#4ade80',
+    fontSize: 48,
+    fontWeight: '900',
+  },
+  walletHeroCurrency: {
+    fontSize: 24,
+    color: '#a0a0a0',
+    fontWeight: 'normal',
+  },
+  walletActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 32,
+  },
+  actionBtnPrimary: {
+    flex: 1,
+    backgroundColor: '#4ade80',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  actionBtnPrimaryText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  actionBtnSecondary: {
+    flex: 1,
+    backgroundColor: '#333',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  actionBtnSecondaryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  txSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  txList: {
+    paddingBottom: 40,
+  },
+  transactionCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  txLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  txIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  txCreditIcon: {
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+  },
+  txDebitIcon: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  txIconText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  txDesc: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  txDate: {
+    color: '#888',
+    fontSize: 12,
+  },
+  txAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  txCreditText: {
+    color: '#4ade80',
+  },
+  txDebitText: {
+    color: '#ef4444',
   },
 });
