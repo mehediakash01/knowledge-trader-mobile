@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { useGetMeQuery } from '../../redux/api/authApi';
 import { useGetMySkillsQuery } from '../../redux/api/feedApi';
-import { useGetTransactionHistoryQuery, usePurchaseTokensMutation } from '../../redux/api/walletApi';
+import { useGetTransactionHistoryQuery, usePurchaseTokensMutation, useGetWalletBalanceQuery } from '../../redux/api/walletApi';
 import { clearAuthStorage } from '../../services/auth.service';
 import { logout } from '../../redux/features/auth/authSlice';
 import type { ISkillPost } from '../../types';
@@ -15,6 +15,7 @@ export default function ProfileScreen() {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   
   const { data: user, isLoading: isLoadingUser } = useGetMeQuery();
+  const { data: walletBalance } = useGetWalletBalanceQuery(undefined);
   const { data: mySkillsData, isLoading: isLoadingSkills, refetch, isFetching } = useGetMySkillsQuery(user?.id as string, {
     skip: !user?.id,
   });
@@ -108,7 +109,7 @@ export default function ProfileScreen() {
       <View style={styles.statsContainer}>
         <TouchableOpacity style={[styles.statBox, styles.walletBox]} onPress={() => setIsWalletOpen(true)}>
           <Text style={styles.statLabel}>Token Wallet</Text>
-          <Text style={styles.statValue}>{user?.ktBalance || 0} KT</Text>
+          <Text style={styles.statValue}>{walletBalance || user?.tokenBalance || 0} KT</Text>
           <Text style={styles.walletHint}>Tap to view details</Text>
         </TouchableOpacity>
         <View style={styles.statBox}>
@@ -150,7 +151,7 @@ export default function ProfileScreen() {
 
             <View style={styles.walletHero}>
               <Text style={styles.walletHeroLabel}>Current Balance</Text>
-              <Text style={styles.walletHeroValue}>{user?.ktBalance || 0} <Text style={styles.walletHeroCurrency}>KT</Text></Text>
+              <Text style={styles.walletHeroValue}>{walletBalance || user?.tokenBalance || 0} <Text style={styles.walletHeroCurrency}>KT</Text></Text>
             </View>
 
             <View style={styles.walletActions}>

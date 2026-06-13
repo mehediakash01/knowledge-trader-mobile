@@ -10,22 +10,22 @@ export interface ITransaction {
 
 export const walletApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getWalletBalance: builder.query<number, string>({
-      query: (userId) => `/users/profile/${userId}`,
+    getWalletBalance: builder.query<number, void>({
+      query: () => `/wallet/balance`,
       transformResponse: (response: any) => response.data?.tokenBalance || 0,
       providesTags: ["User"],
     }),
     getTransactionHistory: builder.query<ITransaction[], void>({
-      query: () => `/trades/my-trades`,
+      query: () => `/wallet/transactions`,
       transformResponse: (response: any) => {
-        // Map trades or mock transactions based on trades
-        const trades = response.data?.trades || response.data || [];
-        return trades.map((t: any) => ({
+        // Map wallet transactions exactly as they come from backend
+        const txs = response.data || [];
+        return txs.map((t: any) => ({
           id: t.id,
-          amount: t.tokenPrice || t.post?.tokenPrice || 0,
-          type: "DEBIT", // Simplification
+          amount: t.amount,
+          type: t.type,
           createdAt: t.createdAt,
-          description: `Trade for ${t.post?.title || 'Knowledge'}`,
+          description: t.description,
         }));
       },
       providesTags: ["Trades"],
