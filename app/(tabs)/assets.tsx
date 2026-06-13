@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../redux/store';
 import { useGetMySkillsQuery } from '../../redux/api/feedApi';
+import EmptyState from '../../components/ui/EmptyState';
 import type { ISkillPost } from '../../types';
 
 // ── Tab IDs ──────────────────────────────────────────────────────────────────
@@ -174,16 +175,15 @@ export default function AssetsScreen() {
               />
             }
             ListEmptyComponent={
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyIcon}>📭</Text>
-                <Text style={styles.emptyTitle}>No skills posted yet</Text>
-                <Text style={styles.emptyBody}>
-                  Switch to "Create New" to publish your first skill.
-                </Text>
+              <EmptyState
+                icon="📭"
+                title="No skills posted yet"
+                subtitle="Switch to 'Create New' to publish your first skill."
+              >
                 <TouchableOpacity style={styles.emptyBtn} onPress={navigateCreate}>
                   <Text style={styles.emptyBtnText}>+ Publish your first skill</Text>
                 </TouchableOpacity>
-              </View>
+              </EmptyState>
             }
             showsVerticalScrollIndicator={false}
           />

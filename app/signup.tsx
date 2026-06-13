@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
 import { useRegisterMutation, useLoginMutation } from '../redux/api/authApi';
 import { setAuthTokens, setAuthUser } from '../services/auth.service';
+import { showToast } from '../redux/features/ui/uiSlice';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
@@ -10,8 +12,9 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   
   const router = useRouter();
-  const [register, { isLoading: isRegistering, error: registerError }] = useRegisterMutation();
-  const [login, { isLoading: isLoggingIn, error: loginError }] = useLoginMutation();
+  const dispatch = useDispatch();
+  const [register, { isLoading: isRegistering }] = useRegisterMutation();
+  const [login, { isLoading: isLoggingIn }] = useLoginMutation();
 
   const handleSignup = async () => {
     if (!name || !email || !password) return;
@@ -28,16 +31,14 @@ export default function SignupScreen() {
       
       // 4. Redirect
       router.replace('/(tabs)');
+      dispatch(showToast({ message: 'Account created successfully!', type: 'success' }));
     } catch (err: any) {
       console.error('Signup failed:', err);
+      dispatch(showToast({ message: err?.data?.message || 'Registration failed. Please try again.', type: 'error' }));
     }
   };
 
   const isLoading = isRegistering || isLoggingIn;
-  const activeError = registerError || loginError;
-  const errorMessage = activeError 
-    ? (activeError as any)?.data?.message || 'Registration failed. Please try again.'
-    : '';
 
   return (
     <KeyboardAvoidingView 
@@ -48,12 +49,6 @@ export default function SignupScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join the Knowledge Trader community</Text>
-
-          {!!errorMessage && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -130,19 +125,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginBottom: 40,
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 14,
-    textAlign: 'center',
   },
   inputContainer: {
     gap: 16,

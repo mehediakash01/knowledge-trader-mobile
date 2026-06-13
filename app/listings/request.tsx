@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
 import { useCreateBarterRequestMutation } from '../../redux/api/tradeApi';
+import { showToast } from '../../redux/features/ui/uiSlice';
 
 export default function TradeRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const dispatch = useDispatch();
   
   const [proposal, setProposal] = useState('');
   // In a real app, you'd fetch the user's active skills and let them pick one.
@@ -15,7 +18,7 @@ export default function TradeRequestScreen() {
 
   const handleSubmit = async () => {
     if (!proposal.trim()) {
-      Alert.alert('Required', 'Please enter a proposal message.');
+      dispatch(showToast({ message: 'Please enter a proposal message.', type: 'warning' }));
       return;
     }
 
@@ -26,12 +29,11 @@ export default function TradeRequestScreen() {
         offeredPostId: offeredPostId || undefined,
       }).unwrap();
       
-      Alert.alert('Success', 'Your trade request has been sent!', [
-        { text: 'OK', onPress: () => router.push('/(tabs)') }
-      ]);
+      dispatch(showToast({ message: 'Your trade request has been sent!', type: 'success' }));
+      router.push('/(tabs)');
     } catch (error: any) {
       console.error('Failed to create trade request:', error);
-      Alert.alert('Error', error?.data?.message || 'Failed to send request. Please try again.');
+      dispatch(showToast({ message: error?.data?.message || 'Failed to send request. Please try again.', type: 'error' }));
     }
   };
 

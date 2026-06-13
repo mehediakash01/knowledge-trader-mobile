@@ -49,6 +49,8 @@ import { useRouter } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 
+import Toast from '../components/ui/Toast';
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const router = useRouter();
@@ -91,6 +93,7 @@ function RootLayoutNav() {
           <Stack.Screen name="listings/request" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
+        <Toast />
       </ThemeProvider>
     </Provider>
   );

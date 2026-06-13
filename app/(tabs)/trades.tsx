@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
 import { useGetMyTradesQuery, useUpdateBarterStatusMutation } from '../../redux/api/tradeApi';
+import { showToast } from '../../redux/features/ui/uiSlice';
+import EmptyState from '../../components/ui/EmptyState';
 import type { IBarterRequest } from '../../types';
 
 export default function TradesScreen() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState<'RECEIVED' | 'SENT'>('RECEIVED');
   const { data, isLoading, refetch, isFetching } = useGetMyTradesQuery();
   const [updateStatus, { isLoading: isUpdating }] = useUpdateBarterStatusMutation();
@@ -17,10 +21,10 @@ export default function TradesScreen() {
   const handleUpdateStatus = async (barterId: string, action: 'ACCEPT' | 'DECLINE') => {
     try {
       await updateStatus({ barterId, action }).unwrap();
-      Alert.alert('Success', `Trade ${action.toLowerCase()}ed successfully.`);
+      dispatch(showToast({ message: `Trade ${action.toLowerCase()}ed successfully.`, type: 'success' }));
     } catch (err: any) {
       console.error('Failed to update status', err);
-      Alert.alert('Error', err?.data?.message || 'Failed to update trade status.');
+      dispatch(showToast({ message: err?.data?.message || 'Failed to update trade status.', type: 'error' }));
     }
   };
 
@@ -135,7 +139,11 @@ export default function TradesScreen() {
             />
           }
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No {activeTab.toLowerCase()} trades found.</Text>
+            <EmptyState 
+              icon="🤝"
+              title={`No ${activeTab.toLowerCase()} trades found`}
+              subtitle="When you offer or receive a trade, it will appear here."
+            />
           }
         />
       )}

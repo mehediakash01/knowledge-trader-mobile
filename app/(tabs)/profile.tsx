@@ -7,6 +7,8 @@ import { useGetMySkillsQuery } from '../../redux/api/feedApi';
 import { useGetTransactionHistoryQuery, usePurchaseTokensMutation, useGetWalletBalanceQuery } from '../../redux/api/walletApi';
 import { clearAuthStorage } from '../../services/auth.service';
 import { logout } from '../../redux/features/auth/authSlice';
+import { showToast } from '../../redux/features/ui/uiSlice';
+import EmptyState from '../../components/ui/EmptyState';
 import type { ISkillPost } from '../../types';
 
 export default function ProfileScreen() {
@@ -35,9 +37,9 @@ export default function ProfileScreen() {
   const handlePurchase = async () => {
     try {
       await purchaseTokens({ amount: 100 }).unwrap();
-      // Normally we'd show a success toast here
-    } catch (e) {
-      // Error handling
+      dispatch(showToast({ message: 'Tokens purchased successfully!', type: 'success' }));
+    } catch (e: any) {
+      dispatch(showToast({ message: 'Failed to purchase tokens.', type: 'error' }));
     }
   };
 
@@ -132,7 +134,11 @@ export default function ProfileScreen() {
             onRefresh={refetch}
             refreshing={isFetching}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>You haven't posted any skills yet.</Text>
+              <EmptyState 
+                icon="📝" 
+                title="No Active Listings" 
+                subtitle="You haven't posted any skills yet." 
+              />
             }
           />
         )}
@@ -172,7 +178,13 @@ export default function ProfileScreen() {
                 keyExtractor={(item, index) => item.id || String(index)}
                 renderItem={renderTransaction}
                 contentContainerStyle={styles.txList}
-                ListEmptyComponent={<Text style={styles.emptyText}>No recent transactions.</Text>}
+                ListEmptyComponent={
+                  <EmptyState 
+                    icon="💸" 
+                    title="No Transactions" 
+                    subtitle="Your transaction history is empty." 
+                  />
+                }
               />
             )}
           </View>

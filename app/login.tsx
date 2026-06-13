@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
 import { useLoginMutation } from '../redux/api/authApi';
 import { setAuthTokens, setAuthUser } from '../services/auth.service';
+import { showToast } from '../redux/features/ui/uiSlice';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
+  const dispatch = useDispatch();
   const [login, { isLoading, error }] = useLoginMutation();
 
   const handleLogin = async () => {
@@ -17,14 +20,12 @@ export default function LoginScreen() {
       await setAuthTokens({ accessToken: response.accessToken, refreshToken: response.refreshToken });
       await setAuthUser(response.user);
       router.replace('/(tabs)');
+      dispatch(showToast({ message: 'Welcome back!', type: 'success' }));
     } catch (err: any) {
       console.error('Login failed:', err);
+      dispatch(showToast({ message: err?.data?.message || 'Login failed. Please check your credentials.', type: 'error' }));
     }
   };
-
-  const errorMessage = error 
-    ? (error as any)?.data?.message || 'Login failed. Please check your credentials.'
-    : '';
 
   return (
     <KeyboardAvoidingView 
@@ -34,12 +35,6 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
-
-        {!!errorMessage && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        )}
 
         <View style={styles.inputContainer}>
           <TextInput
@@ -104,19 +99,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginBottom: 40,
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 14,
-    textAlign: 'center',
   },
   inputContainer: {
     gap: 16,

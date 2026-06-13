@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGetAllSkillPostsQuery, useGetCategoriesQuery } from '../../redux/api/feedApi';
+import EmptyState from '../../components/ui/EmptyState';
 import type { ISkillPost } from '../../types';
 
 const BAZAAR_MAX_PRICE = 5000;
@@ -172,10 +173,11 @@ export default function FeedScreen() {
               />
             }
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No results found.</Text>
-                <Text style={styles.emptySubText}>Try adjusting your filters.</Text>
-              </View>
+              <EmptyState 
+                icon="🔍"
+                title="No results found"
+                subtitle="Try adjusting your filters or search terms."
+              />
             }
             ListFooterComponent={
               totalPages > 1 ? (
