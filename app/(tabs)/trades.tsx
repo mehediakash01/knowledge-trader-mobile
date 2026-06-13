@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useGetMyTradesQuery, useUpdateBarterStatusMutation } from '../../redux/api/tradeApi';
 import type { IBarterRequest } from '../../types';
 
 export default function TradesScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'RECEIVED' | 'SENT'>('RECEIVED');
   const { data, isLoading, refetch, isFetching } = useGetMyTradesQuery();
   const [updateStatus, { isLoading: isUpdating }] = useUpdateBarterStatusMutation();
@@ -74,6 +76,21 @@ export default function TradesScreen() {
               <Text style={styles.declineBtnText}>Decline</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Chat CTA for accepted trades */}
+        {item.status === 'ACCEPTED' && (
+          <TouchableOpacity
+            style={styles.chatBtn}
+            onPress={() =>
+              router.push(
+                `/chat/${item.id}?partnerName=${encodeURIComponent(otherUser?.name ?? 'Trader')}&skillTitle=${encodeURIComponent(requestedSkill)}` as any,
+              )
+            }
+            activeOpacity={0.8}
+          >
+            <Text style={styles.chatBtnText}>💬  Open Negotiation Chat</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -244,6 +261,19 @@ const styles = StyleSheet.create({
   declineBtnText: {
     color: '#ef4444',
     fontWeight: 'bold',
+  },
+  chatBtn: {
+    backgroundColor: 'rgba(14,165,233,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.3)',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  chatBtnText: {
+    color: '#0ea5e9',
+    fontWeight: '700',
+    fontSize: 13,
   },
   emptyText: {
     color: '#a0a0a0',
