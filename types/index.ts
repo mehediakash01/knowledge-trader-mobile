@@ -10,6 +10,8 @@ export interface IUser {
   ktBalance?: number;
   tokenBalance?: number;
   reputationScore?: number;
+  expertise?: { name: string; level: string }[];
+  learningPath?: { name: string; priority: number }[];
 }
 
 export interface IApiResponse<T> {

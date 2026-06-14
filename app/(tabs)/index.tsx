@@ -88,7 +88,16 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Skill Bazaar</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>Skill Bazaar</Text>
+        <TouchableOpacity
+          style={styles.matchmakerBtn}
+          onPress={() => router.push('/matchmaker' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.matchmakerBtnText}>🧠 AI Match</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -216,9 +225,27 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#ffffff',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 16,
+  },
+  matchmakerBtn: {
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    borderColor: 'rgba(14, 165, 233, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  matchmakerBtnText: {
+    color: '#0ea5e9',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   searchContainer: {
     flexDirection: 'row',
