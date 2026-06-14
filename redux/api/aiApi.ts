@@ -36,6 +36,28 @@ export interface IMatchSkillResponse {
   }[];
 }
 
+export interface ISyllabusModule {
+  moduleNumber: number;
+  title: string;
+  description: string;
+  topics: string[];
+  estimatedTime: string;
+}
+
+export interface ISyllabusResponse {
+  syllabus: ISyllabusModule[];
+  outcomes: string[];
+  targetAudience: string;
+  valueProp: string;
+}
+
+export interface IGenerateSyllabusPayload {
+  title: string;
+  roadmapType: "DAILY" | "HOURLY" | "SEVEN_DAY" | "THIRTY_DAY";
+  category?: string;
+  shortDescription?: string;
+}
+
 // ── API slice ────────────────────────────────────────────────────────────────
 
 export const aiApi = baseApi.injectEndpoints({
@@ -75,6 +97,37 @@ export const aiApi = baseApi.injectEndpoints({
       transformResponse: (response: IApiResponse<ISummarizeReviewsResponse>) =>
         response.data,
     }),
+
+    // POST /ai/match — fetch AI matches (as query)
+    getAIMatches: builder.query<IMatchSkillResponse, void>({
+      query: () => ({
+        url: "/ai/match",
+        method: "POST",
+      }),
+      transformResponse: (response: IApiResponse<IMatchSkillResponse>) =>
+        response.data,
+    }),
+
+    // POST /ai/match — fetch AI matches (as mutation)
+    matchSkills: builder.mutation<IMatchSkillResponse, void>({
+      query: () => ({
+        url: "/ai/match",
+        method: "POST",
+      }),
+      transformResponse: (response: IApiResponse<IMatchSkillResponse>) =>
+        response.data,
+    }),
+
+    // POST /ai/generate-syllabus — generate syllabus with AI
+    generateSyllabus: builder.mutation<ISyllabusResponse, IGenerateSyllabusPayload>({
+      query: (payload) => ({
+        url: "/ai/generate-syllabus",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (response: IApiResponse<ISyllabusResponse>) =>
+        response.data,
+    }),
   }),
 });
 
@@ -82,4 +135,7 @@ export const {
   useGetSkillAIReviewQuery,
   useGenerateSkillAIReviewMutation,
   useSummarizeReviewsMutation,
+  useGetAIMatchesQuery,
+  useMatchSkillsMutation,
+  useGenerateSyllabusMutation,
 } = aiApi;

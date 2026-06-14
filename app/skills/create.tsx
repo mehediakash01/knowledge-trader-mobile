@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateSkillPostMutation, type ICreateSkillPostPayload } from '../../redux/api/feedApi';
+import { useGenerateSyllabusMutation, type ISyllabusModule } from '../../redux/api/aiApi';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ interface FormData {
   targetAudience: string;
   prerequisites: string;
   outcomes: string; // newline-separated
+  syllabus: ISyllabusModule[];
   // Step 4 – Vault
   vaultContentType: VaultType;
   longDescription: string;
@@ -56,6 +58,7 @@ const DEFAULT: FormData = {
   targetAudience: '',
   prerequisites: '',
   outcomes: '',
+  syllabus: [],
   vaultContentType: 'TEXT',
   longDescription: '',
   vaultVideo: '',
@@ -103,6 +106,8 @@ function validateStep(step: number, form: FormData): string | null {
   }
   if (step === 2) {
     if (!form.targetAudience.trim()) return 'Target audience is required.';
+    if (!form.syllabus || form.syllabus.length === 0)
+      return 'Generate or add at least one syllabus module.';
   }
   if (step === 3) {
     if (form.vaultContentType === 'TEXT' && form.longDescription.trim().length < 200)
@@ -143,14 +148,90 @@ function Field({
 export default function CreateSkillScreen() {
   const router = useRouter();
   const [createSkillPost, { isLoading: isSubmitting }] = useCreateSkillPostMutation();
+  const [generateSyllabus, { isLoading: isGenerating }] = useGenerateSyllabusMutation();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(DEFAULT);
   const [error, setError] = useState<string | null>(null);
 
-  const set = (key: keyof FormData) => (val: string) => {
+  // Pulse texts for generation loading state
+  const [pulseIndex, setPulseIndex] = useState(0);
+  const PULSE_TEXTS = [
+    'Mapping structure...',
+    'Formulating learning outcomes...',
+    'Synthesizing modules...',
+    'Finalizing syllabus...',
+  ];
+
+  React.useEffect(() => {
+    if (!isGenerating) return;
+    const interval = setInterval(() => {
+      setPulseIndex((prev) => (prev + 1) % PULSE_TEXTS.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
+
+  const set = (key: keyof FormData) => (val: any) => {
     setForm((prev) => ({ ...prev, [key]: val }));
     setError(null);
+  };
+
+  const updateModule = (index: number, key: keyof ISyllabusModule, value: any) => {
+    setForm((prev) => {
+      const nextSyllabus = [...prev.syllabus];
+      nextSyllabus[index] = { ...nextSyllabus[index], [key]: value };
+      return { ...prev, syllabus: nextSyllabus };
+    });
+  };
+
+  const removeModule = (index: number) => {
+    setForm((prev) => {
+      const nextSyllabus = prev.syllabus.filter((_, i) => i !== index);
+      const updated = nextSyllabus.map((mod, i) => ({ ...mod, moduleNumber: i + 1 }));
+      return { ...prev, syllabus: updated };
+    });
+  };
+
+  const addModule = () => {
+    setForm((prev) => ({
+      ...prev,
+      syllabus: [
+        ...prev.syllabus,
+        {
+          moduleNumber: prev.syllabus.length + 1,
+          title: '',
+          description: '',
+          topics: [],
+          estimatedTime: '',
+        },
+      ],
+    }));
+  };
+
+  const handleGenerateSyllabus = async () => {
+    if (!form.title.trim()) {
+      setError('Title is required first (Step 1).');
+      return;
+    }
+    setError(null);
+    try {
+      const result = await generateSyllabus({
+        title: form.title,
+        roadmapType: form.roadmapType,
+        category: form.category || undefined,
+        shortDescription: form.shortDescription || undefined,
+      }).unwrap();
+
+      setForm((prev) => ({
+        ...prev,
+        syllabus: result.syllabus || [],
+        outcomes: result.outcomes ? result.outcomes.join('\n') : prev.outcomes,
+        targetAudience: result.targetAudience || prev.targetAudience,
+        valueProp: result.valueProp || prev.valueProp,
+      }));
+    } catch (err: any) {
+      setError(err?.data?.message || 'AI generation failed. Please try again.');
+    }
   };
 
   const goNext = () => {
@@ -184,6 +265,7 @@ export default function CreateSkillScreen() {
       prerequisites: form.prerequisites.trim(),
       tokenPrice: parseFloat(form.tokenPrice),
       longDescription: form.longDescription.trim(),
+      syllabus: form.syllabus,
       resourceLinks: form.resourceLinks
         ? form.resourceLinks.split('\n').map((r) => r.trim()).filter(Boolean)
         : [],
@@ -299,7 +381,35 @@ export default function CreateSkillScreen() {
 
   const renderStep2 = () => (
     <>
-      <Field label="Roadmap Type">
+      {/* AI Architect Box */}
+      <View style={styles.aiBox}>
+        <View style={styles.aiBoxHeader}>
+          <Text style={styles.aiBoxSparkle}>✦</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aiBoxTitle}>AI Architect</Text>
+            <Text style={styles.aiBoxDesc}>
+              Generate a full module-by-module syllabus, learning outcomes, and target audience instantly.
+            </Text>
+          </View>
+        </View>
+
+        {isGenerating ? (
+          <View style={styles.aiGeneratingBox}>
+            <ActivityIndicator size="small" color="#0ea5e9" />
+            <Text style={styles.aiGeneratingText}>{PULSE_TEXTS[pulseIndex]}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.aiBtn}
+            onPress={handleGenerateSyllabus}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.aiBtnText}>✦ Generate Syllabus</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <Field label="Roadmap Duration">
         <View style={styles.chipRow}>
           {ROADMAP_OPTIONS.map((opt) => (
             <TouchableOpacity
@@ -322,6 +432,68 @@ export default function CreateSkillScreen() {
           ))}
         </View>
       </Field>
+
+      {/* Dynamic Syllabus Modules Editor */}
+      <View style={styles.syllabusHeaderRow}>
+        <Text style={styles.sectionLabel}>Syllabus Modules ({form.syllabus.length})</Text>
+        <TouchableOpacity style={styles.addModuleBtn} onPress={addModule} activeOpacity={0.8}>
+          <Text style={styles.addModuleBtnText}>+ Add Module</Text>
+        </TouchableOpacity>
+      </View>
+
+      {form.syllabus.map((mod, idx) => (
+        <View key={idx} style={styles.moduleCard}>
+          <View style={styles.moduleCardHeader}>
+            <View style={styles.moduleBadge}>
+              <Text style={styles.moduleBadgeText}>{mod.moduleNumber}</Text>
+            </View>
+            <TextInput
+              style={styles.moduleTitleInput}
+              value={mod.title}
+              onChangeText={(val) => updateModule(idx, 'title', val)}
+              placeholder={`Module ${idx + 1} Title`}
+              placeholderTextColor="#555"
+            />
+            <TouchableOpacity style={styles.removeModuleBtn} onPress={() => removeModule(idx)}>
+              <Text style={styles.removeModuleBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TextInput
+            style={[styles.input, styles.multiline, styles.moduleInputSpacing]}
+            value={mod.description}
+            onChangeText={(val) => updateModule(idx, 'description', val)}
+            placeholder="Describe what learners will master in this module..."
+            placeholderTextColor="#555"
+            multiline
+            numberOfLines={2}
+          />
+
+          <View style={styles.moduleParamsRow}>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={styles.input}
+                value={mod.estimatedTime}
+                onChangeText={(val) => updateModule(idx, 'estimatedTime', val)}
+                placeholder="Time (e.g. 2 hours)"
+                placeholderTextColor="#555"
+              />
+            </View>
+            <View style={{ flex: 1.5 }}>
+              <TextInput
+                style={styles.input}
+                value={mod.topics ? mod.topics.join(', ') : ''}
+                onChangeText={(val) =>
+                  updateModule(idx, 'topics', val.split(',').map((t) => t.trim()).filter(Boolean))
+                }
+                placeholder="Topics (comma separated)"
+                placeholderTextColor="#555"
+              />
+            </View>
+          </View>
+        </View>
+      ))}
+
       <Field label="Target Audience *">
         <TextInput
           style={[styles.input, styles.multiline]}
@@ -798,5 +970,139 @@ const styles = StyleSheet.create({
   publishBtn: {
     backgroundColor: '#0ea5e9',
     paddingHorizontal: 28,
+  },
+  // AI Architect Box
+  aiBox: {
+    backgroundColor: 'rgba(14, 165, 233, 0.06)',
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+  },
+  aiBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  aiBoxSparkle: {
+    fontSize: 20,
+    color: '#0ea5e9',
+    marginTop: 2,
+  },
+  aiBoxTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  aiBoxDesc: {
+    fontSize: 12,
+    color: '#888',
+    lineHeight: 18,
+  },
+  aiBtn: {
+    backgroundColor: '#0ea5e9',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  aiGeneratingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  aiGeneratingText: {
+    color: '#0ea5e9',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Syllabus Editor
+  syllabusHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  addModuleBtn: {
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    borderColor: '#0ea5e9',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  addModuleBtnText: {
+    color: '#0ea5e9',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  moduleCard: {
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#222',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  moduleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  moduleBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moduleBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  moduleTitleInput: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    padding: 0,
+  },
+  removeModuleBtn: {
+    padding: 4,
+  },
+  removeModuleBtnText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  moduleInputSpacing: {
+    marginBottom: 10,
+    minHeight: 60,
+  },
+  moduleParamsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
 });

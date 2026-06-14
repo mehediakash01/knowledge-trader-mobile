@@ -8,6 +8,7 @@ export interface IUser {
   bio?: string | null;
   tagline?: string | null;
   ktBalance?: number;
+  tokenBalance?: number;
   reputationScore?: number;
 }
 
