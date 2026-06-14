@@ -102,9 +102,14 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user?.name || 'Knowledge Trader'}</Text>
           <Text style={styles.userEmail}>{user?.email || 'No email provided'}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.editProfileBtn} onPress={() => router.push('/profile/settings' as any)}>
+            <Text style={styles.editProfileText}>⚙️ Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Balance / Stats */}
@@ -257,6 +262,23 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: '#ef4444',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  headerActions: {
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  editProfileBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  editProfileText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
   },
