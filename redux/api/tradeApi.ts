@@ -33,7 +33,15 @@ export const tradeApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Trades", "Barters", "trade", "skillPost", "notification"],
     }),
+    executeTokenTrade: builder.mutation<void, { targetPostId: string }>({
+      query: (payload) => ({
+        url: "/trades/token-trade",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["Trades", "trade", "skillPost", "notification", "User"],
+    }),
   }),
 });
 
-export const { useCreateBarterRequestMutation, useGetMyTradesQuery, useUpdateBarterStatusMutation } = tradeApi;
+export const { useCreateBarterRequestMutation, useGetMyTradesQuery, useUpdateBarterStatusMutation, useExecuteTokenTradeMutation } = tradeApi;

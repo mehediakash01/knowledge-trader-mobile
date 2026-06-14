@@ -9,9 +9,13 @@ import {
   Image,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
 import { useGetSkillPostByIdQuery } from '../../redux/api/feedApi';
+import { useExecuteTokenTradeMutation } from '../../redux/api/tradeApi';
+import { showToast } from '../../redux/features/ui/uiSlice';
 import {
   useGetSkillAIReviewQuery,
   useGenerateSkillAIReviewMutation,
@@ -328,10 +332,29 @@ function AIInsightsPanel({ postId }: AIInsightsPanelProps) {
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state: any) => state.auth);
 
   const { data: post, isLoading, error } = useGetSkillPostByIdQuery(id as string, {
     skip: !id,
   });
+
+  const [executeTokenTrade, { isLoading: isTrading }] = useExecuteTokenTradeMutation();
+
+  const handleTokenTrade = async () => {
+    if (!post) return;
+    if (!user || (user.tokenBalance || 0) < post.tokenPrice) {
+      Alert.alert("Insufficient Balance", "You do not have enough tokens. Please add more to your wallet.");
+      return;
+    }
+    try {
+      await executeTokenTrade({ targetPostId: id as string }).unwrap();
+      dispatch(showToast({ message: 'Successfully unlocked!', type: 'success' }));
+      router.push('/(tabs)');
+    } catch (err: any) {
+      dispatch(showToast({ message: err?.data?.message || 'Trade failed', type: 'error' }));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -431,13 +454,23 @@ export default function ListingDetailScreen() {
 
       {/* Fixed bottom CTA */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.tradeBtn}
-          activeOpacity={0.8}
-          onPress={() => router.push(`/listings/request?listingId=${id}` as any)}
-        >
-          <Text style={styles.tradeBtnText}>Request Trade</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.tradeBtn, styles.flex1, styles.marginRight]}
+            activeOpacity={0.8}
+            onPress={() => router.push(`/listings/request?id=${id}` as any)}
+          >
+            <Text style={styles.tradeBtnText}>Request Trade</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tokenBtn, styles.flex1, (!user || (user.tokenBalance || 0) < (post?.tokenPrice || 0)) && styles.disabledBtn]}
+            activeOpacity={0.8}
+            onPress={handleTokenTrade}
+            disabled={isTrading || !user || (user.tokenBalance || 0) < (post?.tokenPrice || 0)}
+          >
+            {isTrading ? <ActivityIndicator color="#fff" /> : <Text style={styles.tokenBtnText}>⚡ Unlock {post?.tokenPrice} KT</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -697,6 +730,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1e1e1e',
   },
+  actionRow: { flexDirection: 'row', gap: 12 },
+  flex1: { flex: 1 },
+  marginRight: { marginRight: 8 },
   tradeBtn: {
     backgroundColor: '#0ea5e9',
     borderRadius: 14,
@@ -704,6 +740,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tradeBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  tokenBtn: {
+    backgroundColor: '#8b5cf6',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  tokenBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  disabledBtn: { opacity: 0.5 },
 
   // Error / back
   errorText: { color: '#f87171', fontSize: 16, marginBottom: 16 },

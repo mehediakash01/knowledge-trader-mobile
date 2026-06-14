@@ -58,6 +58,18 @@ export interface IGenerateSyllabusPayload {
   shortDescription?: string;
 }
 
+export interface IAssessTradeValuePayload {
+  offeredPostId: string;
+  targetPostId: string;
+}
+
+export interface IAssessTradeValueResponse {
+  isBalanced: boolean;
+  message: string;
+  offeredValue: number;
+  targetValue: number;
+}
+
 // ── API slice ────────────────────────────────────────────────────────────────
 
 export const aiApi = baseApi.injectEndpoints({
@@ -128,6 +140,17 @@ export const aiApi = baseApi.injectEndpoints({
       transformResponse: (response: IApiResponse<ISyllabusResponse>) =>
         response.data,
     }),
+
+    // POST /ai/trade-value — assess trade value with AI
+    assessTradeValue: builder.mutation<IAssessTradeValueResponse, IAssessTradeValuePayload>({
+      query: (payload) => ({
+        url: "/ai/trade-value",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (response: IApiResponse<IAssessTradeValueResponse>) =>
+        response.data,
+    }),
   }),
 });
 
@@ -138,4 +161,5 @@ export const {
   useGetAIMatchesQuery,
   useMatchSkillsMutation,
   useGenerateSyllabusMutation,
+  useAssessTradeValueMutation,
 } = aiApi;

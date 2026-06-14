@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useCreateBarterRequestMutation } from '../../redux/api/tradeApi';
+import { useGetMySkillsQuery } from '../../redux/api/feedApi';
+import { useAssessTradeValueMutation } from '../../redux/api/aiApi';
 import { showToast } from '../../redux/features/ui/uiSlice';
 
 export default function TradeRequestScreen() {
@@ -11,10 +13,23 @@ export default function TradeRequestScreen() {
   const dispatch = useDispatch();
   
   const [proposal, setProposal] = useState('');
-  // In a real app, you'd fetch the user's active skills and let them pick one.
   const [offeredPostId, setOfferedPostId] = useState(''); 
   
+  const { user } = useSelector((state: any) => state.auth);
+  const { data: mySkills } = useGetMySkillsQuery(user?.id || '', { skip: !user?.id });
+  const [assessTrade, { data: tradeValuation, isLoading: isAssessing }] = useAssessTradeValueMutation();
   const [createBarter, { isLoading }] = useCreateBarterRequestMutation();
+
+  const handleSelectSkill = async (skillId: string) => {
+    setOfferedPostId(skillId);
+    if (skillId) {
+      try {
+        await assessTrade({ offeredPostId: skillId, targetPostId: id as string }).unwrap();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     if (!proposal.trim()) {
@@ -68,13 +83,33 @@ export default function TradeRequestScreen() {
           />
 
           <Text style={styles.label}>Offer a specific skill (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your Listing ID to link it..."
-            placeholderTextColor="#888888"
-            value={offeredPostId}
-            onChangeText={setOfferedPostId}
-          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.skillsScroll}>
+            <TouchableOpacity 
+               style={[styles.skillCard, !offeredPostId && styles.skillCardActive]}
+               onPress={() => handleSelectSkill('')}
+            >
+               <Text style={styles.skillCardText}>None</Text>
+            </TouchableOpacity>
+            {mySkills?.data?.map(skill => (
+              <TouchableOpacity 
+                 key={skill.id}
+                 style={[styles.skillCard, offeredPostId === skill.id && styles.skillCardActive]}
+                 onPress={() => handleSelectSkill(skill.id)}
+              >
+                 <Text style={styles.skillCardText}>{skill.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {offeredPostId ? (isAssessing ? (
+            <ActivityIndicator color="#0ea5e9" />
+          ) : tradeValuation ? (
+            <View style={[styles.valuationBadge, tradeValuation.isBalanced ? styles.balancedBadge : styles.warningBadge]}>
+              <Text style={tradeValuation.isBalanced ? styles.balancedText : styles.warningText}>
+                {tradeValuation.isBalanced ? '✓ AI Verdict: Balanced Trade (Equal Worth)' : `⚠ AI Warning: ${tradeValuation.message}`}
+              </Text>
+            </View>
+          ) : null) : null}
         </View>
 
         <TouchableOpacity 
@@ -170,4 +205,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  skillsScroll: { flexDirection: 'row', paddingVertical: 8, maxHeight: 60 },
+  skillCard: { 
+    backgroundColor: '#1e1e1e', 
+    borderWidth: 1, borderColor: '#333', 
+    borderRadius: 8, padding: 12, marginRight: 8,
+    minWidth: 80, alignItems: 'center', justifyContent: 'center'
+  },
+  skillCardActive: { borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.1)' },
+  skillCardText: { color: '#fff', fontSize: 14 },
+  valuationBadge: { padding: 12, borderRadius: 8, marginTop: 8 },
+  balancedBadge: { backgroundColor: 'rgba(74, 222, 128, 0.1)', borderWidth: 1, borderColor: '#4ade80' },
+  warningBadge: { backgroundColor: 'rgba(248, 113, 113, 0.1)', borderWidth: 1, borderColor: '#f87171' },
+  balancedText: { color: '#4ade80', fontSize: 12, fontWeight: 'bold' },
+  warningText: { color: '#f87171', fontSize: 12, fontWeight: 'bold' },
 });
