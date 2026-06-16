@@ -54,7 +54,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="Full Name"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9ca3af"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -62,7 +62,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="Email Address"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9ca3af"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -71,7 +71,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="Password"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9ca3af"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -84,7 +84,7 @@ export default function SignupScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#000000" />
+              <ActivityIndicator color="#ffffff" />
             ) : (
               <Text style={styles.buttonText}>Sign Up</Text>
             )}
@@ -105,7 +105,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#f9fafb',
   },
   scrollContent: {
     flexGrow: 1,
@@ -118,12 +118,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#111827',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#a0a0a0',
+    color: '#6b7280',
     marginBottom: 40,
   },
   inputContainer: {
@@ -131,26 +131,36 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   input: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    color: '#ffffff',
+    color: '#1f2937',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   button: {
-    backgroundColor: '#4ade80',
+    backgroundColor: '#4f46e5',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: '#000000',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -161,11 +171,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footerText: {
-    color: '#a0a0a0',
+    color: '#6b7280',
     fontSize: 15,
   },
   footerLink: {
-    color: '#4ade80',
+    color: '#4f46e5',
     fontSize: 15,
     fontWeight: 'bold',
   },
