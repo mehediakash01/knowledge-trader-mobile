@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGetAllSkillPostsQuery, useGetCategoriesQuery } from '../../redux/api/feedApi';
 import EmptyState from '../../components/ui/EmptyState';
@@ -42,17 +42,10 @@ export default function FeedScreen() {
 
   const activeCategories = categoryData?.length ? categoryData : DEFAULT_CATEGORIES;
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
+  const handlePageChange = (newPage: number) => setPage(newPage);
 
   const toggleCategory = (category: string) => {
-    setCategories((prev) => {
-      if (prev.includes(category)) {
-        return prev.filter((c) => c !== category);
-      }
-      return [...prev, category];
-    });
+    setCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]);
     setPage(1);
   };
 
@@ -64,7 +57,7 @@ export default function FeedScreen() {
     setPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil((data?.meta.total ?? 0) / BAZAAR_DEFAULT_LIMIT));
+  const totalPages = Math.max(1, Math.ceil((data?.meta?.total ?? 0) / BAZAAR_DEFAULT_LIMIT));
 
   const renderItem = ({ item }: { item: ISkillPost }) => (
     <TouchableOpacity 
@@ -78,10 +71,33 @@ export default function FeedScreen() {
           <Text style={styles.statusText}>{item.status || 'ACTIVE'}</Text>
         </View>
       </View>
+      
       <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+      
+      {item.description && (
+        <Text style={styles.description} numberOfLines={3}>
+          {item.description}
+        </Text>
+      )}
+
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.tagsContainer}>
+          {item.tags.map(tag => (
+            <View key={tag} style={styles.tagBadge}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       <View style={styles.cardFooter}>
-        <Text style={styles.userInfo}>{item.creator?.name || 'Anonymous'}</Text>
-        <Text style={styles.price}>{item.tokenPrice} KT</Text>
+        <View style={styles.creatorInfo}>
+          <View style={styles.avatarPlaceholder} />
+          <Text style={styles.userInfo}>{item.creator?.name || 'Anonymous'}</Text>
+        </View>
+        <View style={styles.priceContainer}>
+          <Text style={styles.price}>{item.tokenPrice} KT</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -104,7 +120,7 @@ export default function FeedScreen() {
         <TextInput
           style={styles.searchInput}
           placeholder="Search skills..."
-          placeholderTextColor="#888"
+          placeholderTextColor="#9CA3AF"
           value={searchTerm}
           onChangeText={setSearchTerm}
         />
@@ -166,7 +182,7 @@ export default function FeedScreen() {
       <View style={styles.listWrapper}>
         {isLoading && !data ? (
           <View style={styles.center}>
-            <ActivityIndicator color="#4ade80" size="large" />
+            <ActivityIndicator color="#2563EB" size="large" />
           </View>
         ) : (
           <FlatList
@@ -178,7 +194,7 @@ export default function FeedScreen() {
               <RefreshControl
                 refreshing={isFetching}
                 onRefresh={refetch}
-                tintColor="#4ade80"
+                tintColor="#2563EB"
               />
             }
             ListEmptyComponent={
@@ -196,7 +212,7 @@ export default function FeedScreen() {
                     style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
                     onPress={() => handlePageChange(page - 1)}
                   >
-                    <Text style={styles.pageBtnText}>Prev</Text>
+                     <Text style={styles.pageBtnText}>Prev</Text>
                   </TouchableOpacity>
                   <Text style={styles.pageText}>Page {page} of {totalPages}</Text>
                   <TouchableOpacity 
@@ -204,7 +220,7 @@ export default function FeedScreen() {
                     style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
                     onPress={() => handlePageChange(page + 1)}
                   >
-                    <Text style={styles.pageBtnText}>Next</Text>
+                     <Text style={styles.pageBtnText}>Next</Text>
                   </TouchableOpacity>
                 </View>
               ) : null
@@ -212,6 +228,15 @@ export default function FeedScreen() {
           />
         )}
       </View>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity 
+        style={styles.fab} 
+        onPress={() => router.push('/skills/create' as any)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -219,74 +244,81 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#F8F9FA',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#1A1A1A',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 48,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
     paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   matchmakerBtn: {
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    borderColor: 'rgba(14, 165, 233, 0.3)',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   matchmakerBtnText: {
-    color: '#0ea5e9',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#2563EB',
+    fontSize: 13,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
-    color: '#fff',
+    color: '#1A1A1A',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E5E7EB',
   },
   filterToggleBtn: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E5E7EB',
   },
   filterToggleText: {
-    color: '#4ade80',
-    fontWeight: 'bold',
+    color: '#2563EB',
+    fontWeight: '600',
   },
   filterPanel: {
     paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
-    marginBottom: 8,
+    borderBottomColor: '#E5E7EB',
   },
   filterTitle: {
-    color: '#a0a0a0',
+    color: '#666666',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
@@ -295,25 +327,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryPill: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E5E7EB',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
   },
   categoryPillActive: {
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    borderColor: '#4ade80',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   categoryPillText: {
-    color: '#a0a0a0',
+    color: '#666666',
     fontSize: 14,
+    fontWeight: '500',
   },
   categoryPillTextActive: {
-    color: '#4ade80',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   priceRow: {
     flexDirection: 'row',
@@ -324,11 +357,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   priceInput: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E5E7EB',
     borderRadius: 8,
-    color: '#fff',
+    color: '#1A1A1A',
     paddingHorizontal: 12,
     height: 40,
   },
@@ -337,8 +370,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearFiltersText: {
-    color: '#ef4444',
-    fontWeight: 'bold',
+    color: '#EF4444',
+    fontWeight: '600',
   },
   listWrapper: {
     flex: 1,
@@ -350,71 +383,108 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 100, // Space for FAB
   },
   card: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   category: {
-    color: '#4ade80',
+    color: '#2563EB',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textTransform: 'uppercase',
   },
   statusBadge: {
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   statusText: {
-    color: '#4ade80',
+    color: '#666666',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 6,
+    lineHeight: 24,
+  },
+  description: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: 16,
+  },
+  tagBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  tagText: {
+    color: '#666666',
+    fontSize: 12,
+    fontWeight: '500',
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 12,
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+    marginRight: 8,
   },
   userInfo: {
-    color: '#a0a0a0',
+    color: '#1A1A1A',
     fontSize: 14,
+    fontWeight: '500',
+  },
+  priceContainer: {
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   price: {
-    color: '#ffffff',
+    color: '#2563EB',
     fontSize: 14,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  emptySubText: {
-    color: '#a0a0a0',
-    marginTop: 8,
+    fontWeight: '700',
   },
   pagination: {
     flexDirection: 'row',
@@ -425,17 +495,42 @@ const styles = StyleSheet.create({
   pageBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#333',
+    backgroundColor: '#F3F4F6',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   pageBtnDisabled: {
     opacity: 0.5,
   },
   pageBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#1A1A1A',
+    fontWeight: '600',
   },
   pageText: {
-    color: '#a0a0a0',
+    color: '#666666',
+    fontWeight: '500',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  fabIcon: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '300',
+    marginTop: -2,
   },
 });

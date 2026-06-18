@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,50 +10,47 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateSkillPostMutation, type ICreateSkillPostPayload } from '../../redux/api/feedApi';
 import { useGenerateSyllabusMutation, type ISyllabusModule } from '../../redux/api/aiApi';
-
-// ── Types ────────────────────────────────────────────────────────────────────
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 type RoadmapType = 'HOURLY' | 'DAILY' | 'SEVEN_DAY' | 'THIRTY_DAY';
 type VaultType = 'TEXT' | 'VIDEO' | 'PDF' | 'CODE';
 
 interface FormData {
-  // Step 1 – Identity
   title: string;
   category: string;
   tokenPrice: string;
-  tags: string; // comma-separated
-  // Step 2 – Hook
+  tags: string; 
   shortDescription: string;
   valueProp: string;
-  teaserAsset: string;
-  // Step 3 – Roadmap
   roadmapType: RoadmapType;
   targetAudience: string;
   prerequisites: string;
-  outcomes: string; // newline-separated
+  outcomes: string; 
   syllabus: ISyllabusModule[];
-  // Step 4 – Vault
   vaultContentType: VaultType;
   longDescription: string;
   vaultVideo: string;
   vaultPdf: string;
   vaultCodeLink: string;
   vaultCodeDescription: string;
-  resourceLinks: string; // newline-separated
+  resourceLinks: string; 
+  teaserImage: any;
+  vaultFile: any;
 }
 
 const DEFAULT: FormData = {
   title: '',
   category: '',
-  tokenPrice: '5',
+  tokenPrice: '0',
   tags: '',
   shortDescription: '',
   valueProp: '',
-  teaserAsset: '',
   roadmapType: 'SEVEN_DAY',
   targetAudience: '',
   prerequisites: '',
@@ -66,6 +63,8 @@ const DEFAULT: FormData = {
   vaultCodeLink: '',
   vaultCodeDescription: '',
   resourceLinks: '',
+  teaserImage: null,
+  vaultFile: null,
 };
 
 const STEPS = [
@@ -89,20 +88,18 @@ const VAULT_OPTIONS: { value: VaultType; label: string }[] = [
   { value: 'CODE', label: 'Code' },
 ];
 
-// ── Validation ───────────────────────────────────────────────────────────────
-
 function validateStep(step: number, form: FormData): string | null {
   if (step === 0) {
-    if (!form.title.trim() || form.title.trim().length < 3)
-      return 'Title must be at least 3 characters.';
+    if (!form.title.trim() || form.title.trim().length < 10 || form.title.trim().length > 100)
+      return 'Title must be between 10 and 100 characters.';
     if (!form.category.trim()) return 'Category is required.';
-    const price = parseFloat(form.tokenPrice);
-    if (isNaN(price) || price < 1) return 'Token price must be at least 1.';
+    const price = parseInt(form.tokenPrice, 10);
+    if (isNaN(price) || price < 0) return 'Tokens must be a valid positive integer (>= 0).';
+    if (!form.tags.trim()) return 'At least 1 category tag must be explicitly chosen.';
   }
   if (step === 1) {
-    if (!form.shortDescription.trim() || form.shortDescription.trim().length < 20)
-      return 'Short description must be at least 20 characters.';
-    if (!form.teaserAsset.trim()) return 'Teaser asset URL is required.';
+    if (!form.shortDescription.trim() || form.shortDescription.trim().length < 30 || form.shortDescription.trim().length > 2000)
+      return 'Description must be between 30 and 2000 characters.';
   }
   if (step === 2) {
     if (!form.targetAudience.trim()) return 'Target audience is required.';
@@ -112,10 +109,10 @@ function validateStep(step: number, form: FormData): string | null {
   if (step === 3) {
     if (form.vaultContentType === 'TEXT' && form.longDescription.trim().length < 200)
       return 'Text content must be at least 200 characters.';
-    if (form.vaultContentType === 'VIDEO' && !form.vaultVideo.trim())
-      return 'Video URL is required.';
-    if (form.vaultContentType === 'PDF' && !form.vaultPdf.trim())
-      return 'PDF URL is required.';
+    if (form.vaultContentType === 'VIDEO' && !form.vaultVideo.trim() && !form.vaultFile)
+      return 'Video URL or file attachment is required.';
+    if (form.vaultContentType === 'PDF' && !form.vaultPdf.trim() && !form.vaultFile)
+      return 'PDF URL or file attachment is required.';
     if (form.vaultContentType === 'CODE') {
       if (!form.vaultCodeLink.startsWith('http'))
         return 'Provide a valid repo link starting with http.';
@@ -126,15 +123,7 @@ function validateStep(step: number, form: FormData): string | null {
   return null;
 }
 
-// ── Field helper ─────────────────────────────────────────────────────────────
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -142,8 +131,6 @@ function Field({
     </View>
   );
 }
-
-// ── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function CreateSkillScreen() {
   const router = useRouter();
@@ -154,26 +141,47 @@ export default function CreateSkillScreen() {
   const [form, setForm] = useState<FormData>(DEFAULT);
   const [error, setError] = useState<string | null>(null);
 
-  // Pulse texts for generation loading state
   const [pulseIndex, setPulseIndex] = useState(0);
-  const PULSE_TEXTS = [
-    'Mapping structure...',
-    'Formulating learning outcomes...',
-    'Synthesizing modules...',
-    'Finalizing syllabus...',
-  ];
+  const PULSE_TEXTS = ['Mapping structure...', 'Formulating learning outcomes...', 'Synthesizing modules...', 'Finalizing syllabus...'];
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isGenerating) return;
-    const interval = setInterval(() => {
-      setPulseIndex((prev) => (prev + 1) % PULSE_TEXTS.length);
-    }, 1500);
+    const interval = setInterval(() => setPulseIndex((prev) => (prev + 1) % PULSE_TEXTS.length), 1500);
     return () => clearInterval(interval);
   }, [isGenerating]);
 
   const set = (key: keyof FormData) => (val: any) => {
     setForm((prev) => ({ ...prev, [key]: val }));
     setError(null);
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      if (result.assets[0].fileSize && result.assets[0].fileSize > 10 * 1024 * 1024) {
+        setError('Maximum file size is 10MB.');
+        return;
+      }
+      setForm(p => ({...p, teaserImage: result.assets[0]}));
+      setError(null);
+    }
+  };
+
+  const pickDocument = async () => {
+    let result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'audio/mpeg', 'audio/wav', 'audio/m4a'],
+    });
+    if (!result.canceled && result.assets && result.assets[0]) {
+      if (result.assets[0].size && result.assets[0].size > 10 * 1024 * 1024) {
+        setError('Maximum file size is 10MB.');
+        return;
+      }
+      setForm(p => ({...p, vaultFile: result.assets[0]}));
+      setError(null);
+    }
   };
 
   const updateModule = (index: number, key: keyof ISyllabusModule, value: any) => {
@@ -195,22 +203,13 @@ export default function CreateSkillScreen() {
   const addModule = () => {
     setForm((prev) => ({
       ...prev,
-      syllabus: [
-        ...prev.syllabus,
-        {
-          moduleNumber: prev.syllabus.length + 1,
-          title: '',
-          description: '',
-          topics: [],
-          estimatedTime: '',
-        },
-      ],
+      syllabus: [...prev.syllabus, { moduleNumber: prev.syllabus.length + 1, title: '', description: '', topics: [], estimatedTime: '' }],
     }));
   };
 
   const handleGenerateSyllabus = async () => {
-    if (!form.title.trim()) {
-      setError('Title is required first (Step 1).');
+    if (!form.title.trim() || form.title.length < 10) {
+      setError('A title with at least 10 chars is required first.');
       return;
     }
     setError(null);
@@ -230,7 +229,7 @@ export default function CreateSkillScreen() {
         valueProp: result.valueProp || prev.valueProp,
       }));
     } catch (err: any) {
-      setError(err?.data?.message || 'AI generation failed. Please try again.');
+      setError(err?.data?.message || 'AI generation failed.');
     }
   };
 
@@ -258,152 +257,90 @@ export default function CreateSkillScreen() {
       tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       shortDescription: form.shortDescription.trim(),
       valueProp: form.valueProp.trim(),
-      teaserAsset: form.teaserAsset.trim(),
+      teaserAsset: form.teaserImage?.uri || '',
       roadmapType: form.roadmapType,
       outcomes: form.outcomes ? form.outcomes.split('\n').map((o) => o.trim()).filter(Boolean) : [],
       targetAudience: form.targetAudience.trim(),
       prerequisites: form.prerequisites.trim(),
-      tokenPrice: parseFloat(form.tokenPrice),
+      tokenPrice: parseInt(form.tokenPrice, 10),
       longDescription: form.longDescription.trim(),
       syllabus: form.syllabus,
-      resourceLinks: form.resourceLinks
-        ? form.resourceLinks.split('\n').map((r) => r.trim()).filter(Boolean)
-        : [],
+      resourceLinks: form.resourceLinks ? form.resourceLinks.split('\n').map((r) => r.trim()).filter(Boolean) : [],
       lockedContent: {
         vaultContentType: form.vaultContentType,
         longDescription: form.longDescription.trim(),
-        vaultVideo: form.vaultVideo.trim(),
-        vaultPdf: form.vaultPdf.trim(),
+        vaultVideo: form.vaultVideo.trim() || (form.vaultContentType === 'VIDEO' ? form.vaultFile?.uri : ''),
+        vaultPdf: form.vaultPdf.trim() || (form.vaultContentType === 'PDF' ? form.vaultFile?.uri : ''),
         vaultCodeLink: form.vaultCodeLink.trim(),
         vaultCodeDescription: form.vaultCodeDescription.trim(),
-        resourceLinks: form.resourceLinks
-          ? form.resourceLinks.split('\n').map((r) => r.trim()).filter(Boolean)
-          : [],
+        resourceLinks: form.resourceLinks ? form.resourceLinks.split('\n').map((r) => r.trim()).filter(Boolean) : [],
       },
     };
 
     try {
       await createSkillPost(payload).unwrap();
       Alert.alert('Published!', 'Your skill post is now live.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/assets' as any) },
+        { text: 'OK', onPress: () => router.replace('/(tabs)/' as any) },
       ]);
     } catch (e: unknown) {
-      const msg =
-        (e as { data?: { message?: string } })?.data?.message ??
-        'Failed to publish. Please try again.';
-      setError(msg);
+      setError('Failed to publish. Please try again.');
     }
   };
 
-  // ── Step panels ────────────────────────────────────────────────────────────
-
   const renderStep0 = () => (
     <>
-      <Field label="Title *">
-        <TextInput
-          style={styles.input}
-          value={form.title}
-          onChangeText={set('title')}
-          placeholder="e.g. Mastering System Design"
-          placeholderTextColor="#555"
-        />
+      <Field label="Title * (10 - 100 chars)">
+        <TextInput style={styles.input} value={form.title} onChangeText={set('title')} placeholder="e.g. Mastering System Design" placeholderTextColor="#9CA3AF" />
       </Field>
       <Field label="Category *">
-        <TextInput
-          style={styles.input}
-          value={form.category}
-          onChangeText={set('category')}
-          placeholder="e.g. Engineering, Design, Business"
-          placeholderTextColor="#555"
-        />
+        <TextInput style={styles.input} value={form.category} onChangeText={set('category')} placeholder="e.g. Engineering" placeholderTextColor="#9CA3AF" />
       </Field>
-      <Field label="Token Price (KT) *">
-        <TextInput
-          style={styles.input}
-          value={form.tokenPrice}
-          onChangeText={set('tokenPrice')}
-          keyboardType="numeric"
-          placeholder="5"
-          placeholderTextColor="#555"
-        />
+      <Field label="Token Price (KT) * (>= 0)">
+        <TextInput style={styles.input} value={form.tokenPrice} onChangeText={set('tokenPrice')} keyboardType="numeric" placeholder="0" placeholderTextColor="#9CA3AF" />
       </Field>
-      <Field label="Tags (comma-separated)">
-        <TextInput
-          style={styles.input}
-          value={form.tags}
-          onChangeText={set('tags')}
-          placeholder="react, typescript, frontend"
-          placeholderTextColor="#555"
-        />
+      <Field label="Tags (comma-separated) *">
+        <TextInput style={styles.input} value={form.tags} onChangeText={set('tags')} placeholder="react, typescript, frontend" placeholderTextColor="#9CA3AF" />
       </Field>
     </>
   );
 
   const renderStep1 = () => (
     <>
-      <Field label="Short Description * (20–200 chars)">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.shortDescription}
-          onChangeText={set('shortDescription')}
-          placeholder="A concise pitch for your skill post…"
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={4}
-          maxLength={200}
-        />
-        <Text style={styles.charCount}>{form.shortDescription.length}/200</Text>
+      <Field label="Short Description * (30–2000 chars)">
+        <TextInput style={[styles.input, styles.multiline]} value={form.shortDescription} onChangeText={set('shortDescription')} placeholder="A concise pitch..." placeholderTextColor="#9CA3AF" multiline numberOfLines={4} maxLength={2000} />
       </Field>
       <Field label="Value Proposition">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.valueProp}
-          onChangeText={set('valueProp')}
-          placeholder="Why is this skill uniquely valuable?"
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={3}
-        />
+        <TextInput style={[styles.input, styles.multiline]} value={form.valueProp} onChangeText={set('valueProp')} placeholder="Why is this valuable?" placeholderTextColor="#9CA3AF" multiline numberOfLines={3} />
       </Field>
-      <Field label="Teaser Asset URL *">
-        <TextInput
-          style={styles.input}
-          value={form.teaserAsset}
-          onChangeText={set('teaserAsset')}
-          placeholder="https://…/teaser.mp4 or image URL"
-          placeholderTextColor="#555"
-          autoCapitalize="none"
-          keyboardType="url"
-        />
+      <Field label="Teaser Image (Optional)">
+        {form.teaserImage ? (
+          <View style={styles.attachmentRow}>
+            <Text style={styles.attachmentText} numberOfLines={1}>{form.teaserImage.name || 'Image attached'}</Text>
+            <TouchableOpacity onPress={() => setForm(p => ({...p, teaserImage: null}))}><Text style={styles.removeText}>Remove File</Text></TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
+            <Text style={styles.uploadBtnText}>Upload Image</Text>
+          </TouchableOpacity>
+        )}
       </Field>
     </>
   );
 
   const renderStep2 = () => (
     <>
-      {/* AI Architect Box */}
       <View style={styles.aiBox}>
         <View style={styles.aiBoxHeader}>
-          <Text style={styles.aiBoxSparkle}>✦</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.aiBoxTitle}>AI Architect</Text>
-            <Text style={styles.aiBoxDesc}>
-              Generate a full module-by-module syllabus, learning outcomes, and target audience instantly.
-            </Text>
-          </View>
+          <Text style={styles.aiBoxTitle}>AI Architect</Text>
+          <Text style={styles.aiBoxDesc}>Generate syllabus and target audience.</Text>
         </View>
-
         {isGenerating ? (
           <View style={styles.aiGeneratingBox}>
-            <ActivityIndicator size="small" color="#0ea5e9" />
+            <ActivityIndicator size="small" color="#2563EB" />
             <Text style={styles.aiGeneratingText}>{PULSE_TEXTS[pulseIndex]}</Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.aiBtn}
-            onPress={handleGenerateSyllabus}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.aiBtn} onPress={handleGenerateSyllabus} activeOpacity={0.8}>
             <Text style={styles.aiBtnText}>✦ Generate Syllabus</Text>
           </TouchableOpacity>
         )}
@@ -412,120 +349,37 @@ export default function CreateSkillScreen() {
       <Field label="Roadmap Duration">
         <View style={styles.chipRow}>
           {ROADMAP_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[
-                styles.chip,
-                form.roadmapType === opt.value && styles.chipActive,
-              ]}
-              onPress={() => set('roadmapType')(opt.value)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  form.roadmapType === opt.value && styles.chipTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
+            <TouchableOpacity key={opt.value} style={[styles.chip, form.roadmapType === opt.value && styles.chipActive]} onPress={() => set('roadmapType')(opt.value)}>
+              <Text style={[styles.chipText, form.roadmapType === opt.value && styles.chipTextActive]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </Field>
 
-      {/* Dynamic Syllabus Modules Editor */}
       <View style={styles.syllabusHeaderRow}>
-        <Text style={styles.sectionLabel}>Syllabus Modules ({form.syllabus.length})</Text>
-        <TouchableOpacity style={styles.addModuleBtn} onPress={addModule} activeOpacity={0.8}>
-          <Text style={styles.addModuleBtnText}>+ Add Module</Text>
-        </TouchableOpacity>
+        <Text style={styles.label}>Syllabus Modules ({form.syllabus.length})</Text>
+        <TouchableOpacity style={styles.addModuleBtn} onPress={addModule}><Text style={styles.addModuleBtnText}>+ Add</Text></TouchableOpacity>
       </View>
 
       {form.syllabus.map((mod, idx) => (
         <View key={idx} style={styles.moduleCard}>
           <View style={styles.moduleCardHeader}>
-            <View style={styles.moduleBadge}>
-              <Text style={styles.moduleBadgeText}>{mod.moduleNumber}</Text>
-            </View>
-            <TextInput
-              style={styles.moduleTitleInput}
-              value={mod.title}
-              onChangeText={(val) => updateModule(idx, 'title', val)}
-              placeholder={`Module ${idx + 1} Title`}
-              placeholderTextColor="#555"
-            />
-            <TouchableOpacity style={styles.removeModuleBtn} onPress={() => removeModule(idx)}>
-              <Text style={styles.removeModuleBtnText}>✕</Text>
-            </TouchableOpacity>
+            <Text style={styles.moduleBadge}>{mod.moduleNumber}</Text>
+            <TextInput style={styles.moduleTitleInput} value={mod.title} onChangeText={(val) => updateModule(idx, 'title', val)} placeholder={`Module ${idx + 1} Title`} placeholderTextColor="#9CA3AF" />
+            <TouchableOpacity onPress={() => removeModule(idx)}><Text style={styles.removeModuleBtnText}>✕</Text></TouchableOpacity>
           </View>
-
-          <TextInput
-            style={[styles.input, styles.multiline, styles.moduleInputSpacing]}
-            value={mod.description}
-            onChangeText={(val) => updateModule(idx, 'description', val)}
-            placeholder="Describe what learners will master in this module..."
-            placeholderTextColor="#555"
-            multiline
-            numberOfLines={2}
-          />
-
-          <View style={styles.moduleParamsRow}>
-            <View style={{ flex: 1 }}>
-              <TextInput
-                style={styles.input}
-                value={mod.estimatedTime}
-                onChangeText={(val) => updateModule(idx, 'estimatedTime', val)}
-                placeholder="Time (e.g. 2 hours)"
-                placeholderTextColor="#555"
-              />
-            </View>
-            <View style={{ flex: 1.5 }}>
-              <TextInput
-                style={styles.input}
-                value={mod.topics ? mod.topics.join(', ') : ''}
-                onChangeText={(val) =>
-                  updateModule(idx, 'topics', val.split(',').map((t) => t.trim()).filter(Boolean))
-                }
-                placeholder="Topics (comma separated)"
-                placeholderTextColor="#555"
-              />
-            </View>
-          </View>
+          <TextInput style={[styles.input, styles.multiline]} value={mod.description} onChangeText={(val) => updateModule(idx, 'description', val)} placeholder="Description..." placeholderTextColor="#9CA3AF" multiline numberOfLines={2} />
         </View>
       ))}
 
       <Field label="Target Audience *">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.targetAudience}
-          onChangeText={set('targetAudience')}
-          placeholder="Who should take this skill post?"
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={3}
-        />
+        <TextInput style={[styles.input, styles.multiline]} value={form.targetAudience} onChangeText={set('targetAudience')} placeholder="Who is this for?" placeholderTextColor="#9CA3AF" multiline numberOfLines={3} />
       </Field>
       <Field label="Prerequisites">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.prerequisites}
-          onChangeText={set('prerequisites')}
-          placeholder="What should learners already know?"
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={3}
-        />
+        <TextInput style={[styles.input, styles.multiline]} value={form.prerequisites} onChangeText={set('prerequisites')} placeholder="Required knowledge?" placeholderTextColor="#9CA3AF" multiline numberOfLines={3} />
       </Field>
       <Field label="Learning Outcomes (one per line)">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.outcomes}
-          onChangeText={set('outcomes')}
-          placeholder={"Build a REST API\nWrite clean TypeScript\nDeploy to cloud"}
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={4}
-        />
+        <TextInput style={[styles.input, styles.multiline]} value={form.outcomes} onChangeText={set('outcomes')} placeholder="Outcome 1\nOutcome 2" placeholderTextColor="#9CA3AF" multiline numberOfLines={4} />
       </Field>
     </>
   );
@@ -535,22 +389,8 @@ export default function CreateSkillScreen() {
       <Field label="Vault Content Type">
         <View style={styles.chipRow}>
           {VAULT_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[
-                styles.chip,
-                form.vaultContentType === opt.value && styles.chipActive,
-              ]}
-              onPress={() => set('vaultContentType')(opt.value)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  form.vaultContentType === opt.value && styles.chipTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
+            <TouchableOpacity key={opt.value} style={[styles.chip, form.vaultContentType === opt.value && styles.chipActive]} onPress={() => set('vaultContentType')(opt.value)}>
+              <Text style={[styles.chipText, form.vaultContentType === opt.value && styles.chipTextActive]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -558,190 +398,81 @@ export default function CreateSkillScreen() {
 
       {form.vaultContentType === 'TEXT' && (
         <Field label="Content (min 200 chars)">
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            value={form.longDescription}
-            onChangeText={set('longDescription')}
-            placeholder="Your full knowledge strategy, guide, or deep-dive…"
-            placeholderTextColor="#555"
-            multiline
-            numberOfLines={8}
-          />
-          <Text style={styles.charCount}>{form.longDescription.length} chars</Text>
+          <TextInput style={[styles.input, styles.multiline]} value={form.longDescription} onChangeText={set('longDescription')} placeholder="Your full guide..." placeholderTextColor="#9CA3AF" multiline numberOfLines={8} />
         </Field>
       )}
 
-      {form.vaultContentType === 'VIDEO' && (
-        <Field label="Video URL *">
-          <TextInput
-            style={styles.input}
-            value={form.vaultVideo}
-            onChangeText={set('vaultVideo')}
-            placeholder="https://…/video.mp4"
-            placeholderTextColor="#555"
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-        </Field>
-      )}
-
-      {form.vaultContentType === 'PDF' && (
-        <Field label="PDF URL *">
-          <TextInput
-            style={styles.input}
-            value={form.vaultPdf}
-            onChangeText={set('vaultPdf')}
-            placeholder="https://…/document.pdf"
-            placeholderTextColor="#555"
-            autoCapitalize="none"
-            keyboardType="url"
-          />
+      {(form.vaultContentType === 'VIDEO' || form.vaultContentType === 'PDF') && (
+        <Field label={`${form.vaultContentType} Upload / Link *`}>
+          {form.vaultFile ? (
+            <View style={styles.attachmentRow}>
+              <Text style={styles.attachmentText} numberOfLines={1}>{form.vaultFile.name || 'File attached'}</Text>
+              <TouchableOpacity onPress={() => setForm(p => ({...p, vaultFile: null}))}><Text style={styles.removeText}>Remove File</Text></TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ gap: 12 }}>
+              <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
+                <Text style={styles.uploadBtnText}>Upload File</Text>
+              </TouchableOpacity>
+              <Text style={{ textAlign: 'center', color: '#6B7280' }}>OR</Text>
+              <TextInput style={styles.input} value={form.vaultContentType === 'VIDEO' ? form.vaultVideo : form.vaultPdf} onChangeText={set(form.vaultContentType === 'VIDEO' ? 'vaultVideo' : 'vaultPdf')} placeholder="https://.../link" placeholderTextColor="#9CA3AF" keyboardType="url" />
+            </View>
+          )}
         </Field>
       )}
 
       {form.vaultContentType === 'CODE' && (
         <>
           <Field label="Repository Link *">
-            <TextInput
-              style={styles.input}
-              value={form.vaultCodeLink}
-              onChangeText={set('vaultCodeLink')}
-              placeholder="https://github.com/user/repo"
-              placeholderTextColor="#555"
-              autoCapitalize="none"
-              keyboardType="url"
-            />
+            <TextInput style={styles.input} value={form.vaultCodeLink} onChangeText={set('vaultCodeLink')} placeholder="https://github.com/..." placeholderTextColor="#9CA3AF" keyboardType="url" />
           </Field>
           <Field label="Code Documentation (min 100 chars) *">
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              value={form.vaultCodeDescription}
-              onChangeText={set('vaultCodeDescription')}
-              placeholder="Describe what the code does, architecture, how to run…"
-              placeholderTextColor="#555"
-              multiline
-              numberOfLines={6}
-            />
-            <Text style={styles.charCount}>{form.vaultCodeDescription.length} chars</Text>
+            <TextInput style={[styles.input, styles.multiline]} value={form.vaultCodeDescription} onChangeText={set('vaultCodeDescription')} placeholder="Architecture, how to run..." placeholderTextColor="#9CA3AF" multiline numberOfLines={6} />
           </Field>
         </>
       )}
-
-      <Field label="Resource Links (one per line)">
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.resourceLinks}
-          onChangeText={set('resourceLinks')}
-          placeholder={"https://docs.example.com\nhttps://github.com/…"}
-          placeholderTextColor="#555"
-          multiline
-          numberOfLines={4}
-          autoCapitalize="none"
-          keyboardType="url"
-        />
-      </Field>
     </>
   );
 
   const PANELS = [renderStep0, renderStep1, renderStep2, renderStep3];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Header */}
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Skill Post</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Text style={styles.backText}>← Back</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Skill</Text>
         <View style={{ width: 60 }} />
       </View>
 
-      {/* Step Indicator */}
       <View style={styles.stepBar}>
         {STEPS.map((s, i) => (
           <View key={s.label} style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepDot,
-                i < step && styles.stepDotDone,
-                i === step && styles.stepDotActive,
-              ]}
-            >
-              {i < step ? (
-                <Text style={styles.stepDotText}>✓</Text>
-              ) : (
-                <Text
-                  style={[
-                    styles.stepDotText,
-                    i === step && styles.stepDotTextActive,
-                  ]}
-                >
-                  {i + 1}
-                </Text>
-              )}
+            <View style={[styles.stepDot, i < step && styles.stepDotDone, i === step && styles.stepDotActive]}>
+              <Text style={[styles.stepDotText, i === step && styles.stepDotTextActive]}>{i < step ? '✓' : i + 1}</Text>
             </View>
-            <Text
-              style={[styles.stepLabel, i === step && styles.stepLabelActive]}
-              numberOfLines={1}
-            >
-              {s.label}
-            </Text>
+            <Text style={[styles.stepLabel, i === step && styles.stepLabelActive]} numberOfLines={1}>{s.label}</Text>
           </View>
         ))}
       </View>
 
-      {/* Step sub-title */}
-      <View style={styles.stepSubRow}>
-        <Text style={styles.stepCounter}>Step {step + 1} of {STEPS.length}</Text>
-        <Text style={styles.stepSub}>{STEPS[step].sub}</Text>
-      </View>
-
-      {/* Form content */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {PANELS[step]()}
-
         {error ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠ {error}</Text>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
       </ScrollView>
 
-      {/* Navigation */}
       <View style={styles.navRow}>
-        <TouchableOpacity
-          style={[styles.navBtn, styles.navBtnSecondary, step === 0 && styles.navBtnDisabled]}
-          onPress={goPrev}
-          disabled={step === 0}
-        >
+        <TouchableOpacity style={[styles.navBtn, styles.navBtnSecondary, step === 0 && styles.navBtnDisabled]} onPress={goPrev} disabled={step === 0}>
           <Text style={styles.navBtnSecondaryText}>← Back</Text>
         </TouchableOpacity>
-
         {step < STEPS.length - 1 ? (
-          <TouchableOpacity style={styles.navBtn} onPress={goNext}>
-            <Text style={styles.navBtnText}>Continue →</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.navBtn} onPress={goNext}><Text style={styles.navBtnText}>Continue →</Text></TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[styles.navBtn, styles.publishBtn, isSubmitting && styles.navBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.navBtnText}>✦ Publish Skill</Text>
-            )}
+          <TouchableOpacity style={[styles.navBtn, isSubmitting && styles.navBtnDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.navBtnText}>✦ Publish</Text>}
           </TouchableOpacity>
         )}
       </View>
@@ -749,360 +480,59 @@ export default function CreateSkillScreen() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0d0d0d',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 16,
-    backgroundColor: '#141414',
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  backBtn: {
-    width: 60,
-  },
-  backText: {
-    color: '#7dd3fc',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  // Step indicator
-  stepBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#141414',
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  stepItem: {
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-  },
-  stepDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1e1e1e',
-    borderWidth: 2,
-    borderColor: '#333',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepDotDone: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
-  },
-  stepDotActive: {
-    backgroundColor: '#0d0d0d',
-    borderColor: '#0ea5e9',
-  },
-  stepDotText: {
-    color: '#555',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  stepDotTextActive: {
-    color: '#0ea5e9',
-  },
-  stepLabel: {
-    color: '#555',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  stepLabelActive: {
-    color: '#0ea5e9',
-  },
-  stepSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#111',
-  },
-  stepCounter: {
-    color: '#0ea5e9',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  stepSub: {
-    color: '#555',
-    fontSize: 12,
-  },
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 32,
-  },
-  // Fields
-  field: {
-    marginBottom: 20,
-  },
-  label: {
-    color: '#a0a0a0',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#fff',
-    fontSize: 15,
-  },
-  multiline: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-  },
-  charCount: {
-    color: '#444',
-    fontSize: 11,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  // Chips
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    backgroundColor: '#1a1a1a',
-  },
-  chipActive: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
-  },
-  chipText: {
-    color: '#888',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  // Error
-  errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 8,
-  },
-  errorText: {
-    color: '#f87171',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  // Navigation
-  navRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1e1e1e',
-    backgroundColor: '#0d0d0d',
-  },
-  navBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: '#0ea5e9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 130,
-  },
-  navBtnSecondary: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  navBtnDisabled: {
-    opacity: 0.4,
-  },
-  navBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  navBtnSecondaryText: {
-    color: '#888',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  publishBtn: {
-    backgroundColor: '#0ea5e9',
-    paddingHorizontal: 28,
-  },
-  // AI Architect Box
-  aiBox: {
-    backgroundColor: 'rgba(14, 165, 233, 0.06)',
-    borderColor: 'rgba(14, 165, 233, 0.2)',
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 24,
-  },
-  aiBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 16,
-  },
-  aiBoxSparkle: {
-    fontSize: 20,
-    color: '#0ea5e9',
-    marginTop: 2,
-  },
-  aiBoxTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  aiBoxDesc: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 18,
-  },
-  aiBtn: {
-    backgroundColor: '#0ea5e9',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  aiGeneratingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  aiGeneratingText: {
-    color: '#0ea5e9',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // Syllabus Editor
-  syllabusHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  addModuleBtn: {
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    borderColor: '#0ea5e9',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  addModuleBtnText: {
-    color: '#0ea5e9',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  moduleCard: {
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  moduleCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  moduleBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#0ea5e9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moduleBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  moduleTitleInput: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
-    padding: 0,
-  },
-  removeModuleBtn: {
-    padding: 4,
-  },
-  removeModuleBtnText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  moduleInputSpacing: {
-    marginBottom: 10,
-    minHeight: 60,
-  },
-  moduleParamsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  backBtn: { width: 60 },
+  backText: { color: '#4B5563', fontSize: 14, fontWeight: '600' },
+  headerTitle: { color: '#111827', fontSize: 18, fontWeight: 'bold' },
+  stepBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  stepItem: { alignItems: 'center', gap: 4, flex: 1 },
+  stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  stepDotDone: { backgroundColor: 'rgba(37, 99, 235, 0.1)', borderColor: '#2563EB' },
+  stepDotActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  stepDotText: { color: '#4B5563', fontSize: 12, fontWeight: 'bold' },
+  stepDotTextActive: { color: '#FFFFFF' },
+  stepLabel: { fontSize: 10, color: '#6B7280' },
+  stepLabelActive: { color: '#2563EB', fontWeight: 'bold' },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  field: { marginBottom: 20 },
+  label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#111827', fontSize: 15 },
+  multiline: { minHeight: 100, textAlignVertical: 'top' },
+  errorBox: { backgroundColor: 'rgba(220, 38, 38, 0.1)', padding: 16, borderRadius: 12, marginTop: 16, borderWidth: 1, borderColor: 'rgba(220, 38, 38, 0.3)' },
+  errorText: { color: '#DC2626', fontSize: 14, fontWeight: 'bold', textAlign: 'center' },
+  navRow: { flexDirection: 'row', padding: 20, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB', gap: 12 },
+  navBtn: { flex: 1, backgroundColor: '#2563EB', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  navBtnSecondary: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  navBtnDisabled: { opacity: 0.5 },
+  navBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  navBtnSecondaryText: { color: '#111827', fontSize: 16, fontWeight: 'bold' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 20 },
+  chipActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  chipText: { color: '#4B5563', fontSize: 14, fontWeight: '600' },
+  chipTextActive: { color: '#FFFFFF' },
+  aiBox: { backgroundColor: 'rgba(37, 99, 235, 0.05)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(37, 99, 235, 0.2)', marginBottom: 20 },
+  aiBoxHeader: { marginBottom: 12 },
+  aiBoxTitle: { color: '#2563EB', fontSize: 16, fontWeight: 'bold' },
+  aiBoxDesc: { color: '#4B5563', fontSize: 14, marginTop: 4 },
+  aiBtn: { backgroundColor: '#2563EB', padding: 12, borderRadius: 8, alignItems: 'center' },
+  aiBtnText: { color: '#FFFFFF', fontWeight: 'bold' },
+  aiGeneratingBox: { alignItems: 'center', padding: 12 },
+  aiGeneratingText: { color: '#2563EB', marginTop: 8, fontWeight: '600' },
+  syllabusHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  addModuleBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F3F4F6', borderRadius: 8 },
+  addModuleBtnText: { color: '#2563EB', fontWeight: 'bold' },
+  moduleCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
+  moduleCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 },
+  moduleBadge: { color: '#4B5563', fontWeight: 'bold', fontSize: 16, width: 24 },
+  moduleTitleInput: { flex: 1, fontSize: 16, fontWeight: 'bold', color: '#111827', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingVertical: 4 },
+  removeModuleBtnText: { color: '#EF4444', fontSize: 16, fontWeight: 'bold', padding: 8 },
+  uploadBtn: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 12, padding: 24, alignItems: 'center' },
+  uploadBtnText: { color: '#2563EB', fontWeight: 'bold' },
+  attachmentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', padding: 16, borderRadius: 12 },
+  attachmentText: { flex: 1, color: '#111827', fontWeight: '500' },
+  removeText: { color: '#DC2626', fontWeight: 'bold', marginLeft: 12 },
 });

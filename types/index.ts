@@ -22,6 +22,7 @@ export interface IApiResponse<T> {
 }
 
 export interface ISkillPost {
+  description: any;
   id: string;
   title: string;
   category: string;

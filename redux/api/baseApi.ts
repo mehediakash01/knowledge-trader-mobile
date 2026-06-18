@@ -32,7 +32,7 @@ export const baseApi = createApi({
   reducerPath: "baseApi",
   baseQuery: ((): BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> => {
     const rawBaseQuery = fetchBaseQuery({
-      baseUrl: resolveApiBaseUrl(),
+      baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000/api/v1',
       // RTK Query allows prepareHeaders to be async
       prepareHeaders: async (headers) => {
         const token = await getAccessToken();
