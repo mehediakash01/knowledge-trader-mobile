@@ -77,6 +77,8 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const [imageError, setImageError] = useState(false);
+
   if (isLoadingUser) {
     return (
       <View style={styles.center}>
@@ -88,8 +90,12 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.profileHeader}>
-        {user?.image ? (
-          <Image source={{ uri: user.image }} style={styles.avatar} />
+        {user?.image && !imageError ? (
+          <Image 
+            source={{ uri: user.image }} 
+            style={styles.avatar} 
+            onError={() => setImageError(true)}
+          />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <Text style={styles.avatarText}>

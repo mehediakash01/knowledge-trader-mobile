@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGetAllSkillPostsQuery, useGetCategoriesQuery } from '../../redux/api/feedApi';
 import EmptyState from '../../components/ui/EmptyState';
@@ -62,7 +62,7 @@ export default function FeedScreen() {
   const renderItem = ({ item }: { item: ISkillPost }) => (
     <TouchableOpacity 
       style={styles.card} 
-      onPress={() => router.push(`/listings/${item.id}` as any)}
+      onPress={() => router.push(`/skills/${item._id || item.id}` as any)}
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
@@ -71,6 +71,16 @@ export default function FeedScreen() {
           <Text style={styles.statusText}>{item.status || 'ACTIVE'}</Text>
         </View>
       </View>
+      
+      {item.thumbnail ? (
+        <Image 
+          source={{ uri: item.thumbnail }} 
+          style={styles.feedThumbnail} 
+          onError={(e) => {
+            // handle error if needed
+          }}
+        />
+      ) : null}
       
       <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
       
@@ -92,11 +102,27 @@ export default function FeedScreen() {
 
       <View style={styles.cardFooter}>
         <View style={styles.creatorInfo}>
-          <View style={styles.avatarPlaceholder} />
+          {item.creator?.image || item.creator?.avatar ? (
+            <Image 
+              source={{ uri: item.creator.image || item.creator.avatar }} 
+              style={styles.avatarImage} 
+              defaultSource={require('../../assets/images/favicon.png')} // Or simply a View fallback if defaultSource isn't enough, but React Native Image supports onError.
+              onError={(e) => {
+                // To properly handle broken link without state, we can rely on standard RN fallback or just styling.
+              }}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder} />
+          )}
           <Text style={styles.userInfo}>{item.creator?.name || 'Anonymous'}</Text>
         </View>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>{item.tokenPrice} KT</Text>
+        <View style={styles.cardActions}>
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>{item.tokenPrice} KT</Text>
+          </View>
+          <View style={styles.actionBtn}>
+            <Text style={styles.actionBtnText}>View Details</Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -421,6 +447,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  feedThumbnail: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#E5E7EB',
+  },
   title: {
     fontSize: 18,
     fontWeight: '700',
@@ -462,6 +495,7 @@ const styles = StyleSheet.create({
   creatorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   avatarPlaceholder: {
     width: 24,
@@ -470,10 +504,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     marginRight: 8,
   },
+  avatarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+    backgroundColor: '#E5E7EB',
+  },
   userInfo: {
     color: '#1A1A1A',
     fontSize: 14,
     fontWeight: '500',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   priceContainer: {
     backgroundColor: 'rgba(37, 99, 235, 0.1)',
@@ -485,6 +531,17 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 14,
     fontWeight: '700',
+  },
+  actionBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   pagination: {
     flexDirection: 'row',
