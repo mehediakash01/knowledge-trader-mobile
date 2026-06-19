@@ -30,9 +30,9 @@ export const feedApi = baseApi.injectEndpoints({
         method: "GET",
         params: params || undefined,
       }),
-      transformResponse: (response: IApiResponse<ISkillPost[]>) => ({
-        meta: response.meta as ISkillPostPaginationMeta,
-        data: response.data,
+      transformResponse: (response: any) => ({
+        meta: response?.meta || { page: 1, limit: 10, total: 0 },
+        data: response?.data || [],
       }),
       providesTags: ["SkillPosts"],
     }),
@@ -58,9 +58,9 @@ export const feedApi = baseApi.injectEndpoints({
         method: "GET",
         params: { creatorId, limit: 20, sortOrder: "desc" },
       }),
-      transformResponse: (response: IApiResponse<ISkillPost[]>) => ({
-        meta: response.meta as ISkillPostPaginationMeta,
-        data: response.data,
+      transformResponse: (response: any) => ({
+        meta: response?.meta || { page: 1, limit: 20, total: 0 },
+        data: response?.data || [],
       }),
       providesTags: ["SkillPosts"],
     }),
