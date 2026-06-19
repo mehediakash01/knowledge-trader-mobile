@@ -2,9 +2,9 @@ import { baseApi } from "./baseApi";
 import type { IApiResponse, IMyTradesResponse } from "../../types";
 
 export interface ICreateBarterRequestPayload {
-  targetPostId: string;
-  proposal: string;
-  offeredPostId?: string;
+  receiverId: string;
+  skillOfferedId: string;
+  skillRequestedId: string;
 }
 
 export const tradeApi = baseApi.injectEndpoints({

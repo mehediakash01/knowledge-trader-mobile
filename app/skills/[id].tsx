@@ -1,46 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, TextInput, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { useGetMeQuery } from '../../redux/api/authApi';
 import { useGetWalletBalanceQuery } from '../../redux/api/walletApi';
-import { useGetMySkillsQuery } from '../../redux/api/feedApi';
 import { useCreateBarterRequestMutation } from '../../redux/api/tradeApi';
 import { showToast } from '../../redux/features/ui/uiSlice';
-
-// Mock data fallback structure for the details page if not connected to a live query
-const MOCK_DATA = {
-  title: 'Advanced Options Trading Strategy',
-  category: 'Finance',
-  creator: {
-    name: 'Alex Trader',
-    image: '',
-  },
-  description: 'Learn the exact options trading framework I use to navigate volatile markets safely while maximizing potential upside. Complete with risk management rules and real trade breakdowns.',
-  tokenPrice: 50,
-  metrics: {
-    feedbackScore: '4.9/5',
-    sentiment: 'Highly Positive',
-    students: 128,
-  },
-  aiAudit: {
-    pros: ['Excellent risk management', 'Clear real-world examples'],
-    cons: ['Requires basic options knowledge', 'Pacing is fast'],
-  },
-  modules: [
-    { title: 'Module 1: Market Fundamentals', duration: '15m' },
-    { title: 'Module 2: The Iron Condor Setup', duration: '22m' },
-    { title: 'Module 3: Risk Mitigation', duration: '18m' },
-  ]
-};
+import { useGetSkillPostByIdQuery, useGetMySkillsQuery } from '../../redux/api/feedApi';
 
 export default function SkillDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const dispatch = useDispatch();
-  const [hasUnlocked, setHasUnlocked] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
+  const [localUnlockState, setLocalUnlockState] = useState(false);
   
   const [isBarterModalOpen, setIsBarterModalOpen] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
@@ -55,18 +29,27 @@ export default function SkillDetailsScreen() {
   });
   const [createBarterRequest, { isLoading: isSubmittingBarter }] = useCreateBarterRequestMutation();
 
-  // Fallback to MOCK_DATA for the dynamic UI demonstration
-  const skill = { ...MOCK_DATA, id: 'mock-skill-id', thumbnail: 'https://via.placeholder.com/800x400' };
-  
-  const canUnlock = activeTokenBalance >= skill.tokenPrice;
+  const { data: apiResponse, isLoading: isLoadingPost } = useGetSkillPostByIdQuery(id as string);
+  const skillPost = apiResponse as any;
+
+  const currentUserId = user?.id; // In our schema, user ID is often .id
+  const postCreatorId = skillPost?.creator?.id || skillPost?.creatorId;
+  const isOwner = !!(currentUserId && postCreatorId && currentUserId === postCreatorId);
+  const hasUnlocked = skillPost?.isAccessible || localUnlockState;
+  const canUnlock = isOwner || hasUnlocked || activeTokenBalance >= (skillPost?.tokenPrice || 0);
 
   const handleSendBarter = async () => {
-    if (!selectedSkillId) return;
+    if (!selectedSkillId || !skillPost?.id) return;
+    const receiverId = skillPost?.creator?.id;
+    if (!receiverId) {
+      dispatch(showToast({ message: "Cannot identify skill creator.", type: "error" }));
+      return;
+    }
     try {
       await createBarterRequest({
-        targetPostId: (id as string) || skill.id,
-        proposal: barterMessage || "I would like to trade skills.",
-        offeredPostId: selectedSkillId
+        receiverId,
+        skillOfferedId: selectedSkillId,
+        skillRequestedId: skillPost.id,
       }).unwrap();
       dispatch(showToast({ message: "Barter request sent successfully!", type: "success" }));
       setIsBarterModalOpen(false);
@@ -76,6 +59,14 @@ export default function SkillDetailsScreen() {
       dispatch(showToast({ message: "Failed to send barter request.", type: "error" }));
     }
   };
+
+  if (isLoadingPost || !skillPost) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -89,67 +80,76 @@ export default function SkillDetailsScreen() {
         {/* Hero Header */}
         <View style={styles.heroSection}>
           <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>{skill.category}</Text>
+            <Text style={styles.badgeText}>{skillPost?.category || 'General'}</Text>
           </View>
-          <Text style={styles.title}>{skill.title}</Text>
+          <Text style={styles.title}>{skillPost?.title}</Text>
           
-          {skill.thumbnail && !thumbnailError && (
+          {skillPost?.thumbnail && !thumbnailError && (
             <Image 
-              source={{ uri: skill.thumbnail }} 
+              source={{ uri: skillPost.thumbnail }} 
               style={styles.thumbnailImage} 
               onError={() => setThumbnailError(true)}
             />
           )}
           
           <View style={styles.creatorMeta}>
-            {skill.creator.image && !imageError ? (
+            {skillPost?.creator?.image && !imageError ? (
               <Image 
-                source={{ uri: skill.creator.image }} 
+                source={{ uri: skillPost.creator.image }} 
                 style={styles.avatarImage} 
                 onError={() => setImageError(true)}
               />
             ) : (
               <View style={styles.avatarPlaceholder} />
             )}
-            <Text style={styles.creatorName}>By {skill.creator.name}</Text>
+            <Text style={styles.creatorName}>By {skillPost?.creator?.name || 'Anonymous'}</Text>
           </View>
           
-          <Text style={styles.description}>{skill.description}</Text>
+          <Text style={styles.description}>{skillPost?.shortDescription || skillPost?.description || 'No description available.'}</Text>
         </View>
 
         {/* Inline Metric Card (Sidebar Equivalent on Web) */}
         <View style={styles.actionCard}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Access Price</Text>
-            <Text style={styles.priceValue}>{skill.tokenPrice} KT</Text>
+            <Text style={styles.priceValue}>{skillPost?.tokenPrice || 0} KT</Text>
           </View>
-          <Text style={styles.balanceText}>Your Balance: {activeTokenBalance} KT</Text>
           
-          <TouchableOpacity 
-            style={[styles.primaryButton, (!canUnlock || hasUnlocked) && styles.primaryButtonDisabled]}
-            onPress={() => canUnlock && setHasUnlocked(true)}
-            disabled={!canUnlock || hasUnlocked}
-          >
-            <Text style={styles.primaryButtonText}>
-              {hasUnlocked ? "Vault Unlocked" : "Unlock Strategy Vault"}
-            </Text>
-          </TouchableOpacity>
-          
-          {!hasUnlocked && !canUnlock && (
-            <Text style={styles.insufficientAlert}>
-              Insufficient Tokens. You need {skill.tokenPrice - activeTokenBalance} more tokens to unlock this vault.
-            </Text>
-          )}
-          
-          {!hasUnlocked && canUnlock && <Text style={styles.secureText}>🔒 Secure AI-Verified Transaction</Text>}
+          {isOwner ? (
+            <View style={styles.ownerBadge}>
+              <Text style={styles.ownerBadgeText}>✓ Your Shared Skill</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.balanceText}>Your Balance: {activeTokenBalance} KT</Text>
+              
+              <TouchableOpacity 
+                style={[styles.primaryButton, (!canUnlock || hasUnlocked) && styles.primaryButtonDisabled]}
+                onPress={() => canUnlock && setLocalUnlockState(true)}
+                disabled={!canUnlock || hasUnlocked}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {hasUnlocked ? "Vault Unlocked" : "Unlock Strategy Vault"}
+                </Text>
+              </TouchableOpacity>
+              
+              {!hasUnlocked && !canUnlock && (
+                <Text style={styles.insufficientAlert}>
+                  Insufficient Tokens. You need {(skillPost?.tokenPrice || 0) - activeTokenBalance} more tokens to unlock this vault.
+                </Text>
+              )}
+              
+              {!hasUnlocked && canUnlock && <Text style={styles.secureText}>🔒 Secure AI-Verified Transaction</Text>}
 
-          {!hasUnlocked && (
-            <TouchableOpacity 
-              style={styles.barterButton}
-              onPress={() => setIsBarterModalOpen(true)}
-            >
-              <Text style={styles.barterButtonText}>🤝 Propose Barter Request</Text>
-            </TouchableOpacity>
+              {!hasUnlocked && (
+                <TouchableOpacity 
+                  style={styles.barterButton}
+                  onPress={() => setIsBarterModalOpen(true)}
+                >
+                  <Text style={styles.barterButtonText}>🤝 Propose Barter Request</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
@@ -158,31 +158,28 @@ export default function SkillDetailsScreen() {
           <Text style={styles.sectionTitle}>Learner Proof & AI Audit</Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metricBox}>
+              <Text style={styles.metricLabel}>Reviews</Text>
+              <Text style={styles.metricValue}>{skillPost?._count?.reviews || 0}</Text>
+            </View>
+            <View style={styles.metricBox}>
               <Text style={styles.metricLabel}>Rating</Text>
-              <Text style={styles.metricValue}>{skill.metrics.feedbackScore}</Text>
+              <Text style={styles.metricValue}>N/A</Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Sentiment</Text>
-              <Text style={styles.metricValue}>{skill.metrics.sentiment}</Text>
-            </View>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Students</Text>
-              <Text style={styles.metricValue}>{skill.metrics.students}</Text>
+              <Text style={styles.metricLabel}>Questions</Text>
+              <Text style={styles.metricValue}>{skillPost?._count?.questions || 0}</Text>
             </View>
           </View>
           
           <View style={styles.prosConsContainer}>
             <View style={[styles.auditCard, styles.prosCard]}>
-              <Text style={styles.auditCardTitle}>✅ Pros</Text>
-              {skill.aiAudit.pros.map((pro, index) => (
-                <Text key={index} style={styles.auditItem}>• {pro}</Text>
-              ))}
+              <Text style={styles.auditCardTitle}>✅ Value Proposition</Text>
+              <Text style={styles.auditItem}>• {skillPost?.valueProp || 'High quality material.'}</Text>
+              <Text style={styles.auditItem}>• Detailed real-world examples</Text>
             </View>
             <View style={[styles.auditCard, styles.consCard]}>
-              <Text style={styles.auditCardTitle}>⚠️ Cons</Text>
-              {skill.aiAudit.cons.map((con, index) => (
-                <Text key={index} style={styles.auditItem}>• {con}</Text>
-              ))}
+              <Text style={styles.auditCardTitle}>⚠️ Target Audience</Text>
+              <Text style={styles.auditItem}>• {skillPost?.targetAudience || 'Beginner to Advanced'}</Text>
             </View>
           </View>
         </View>
@@ -192,17 +189,26 @@ export default function SkillDetailsScreen() {
           <Text style={styles.sectionTitle}>Strategy Vault</Text>
           
           <View style={styles.vaultContainer}>
-            {skill.modules.map((mod, index) => (
+            {(skillPost?.outcomes || ['Module 1: Market Fundamentals', 'Module 2: The Iron Condor Setup', 'Module 3: Risk Mitigation']).map((mod: string, index: number) => (
               <View key={index} style={styles.moduleItem}>
                 <View style={styles.moduleIconPlaceholder} />
                 <View style={styles.moduleTextContainer}>
-                  <Text style={styles.moduleTitle}>{mod.title}</Text>
-                  <Text style={styles.moduleDuration}>{mod.duration}</Text>
+                  <Text style={styles.moduleTitle}>{mod}</Text>
                 </View>
               </View>
             ))}
 
-            {!hasUnlocked && (
+            {(hasUnlocked || isOwner) && skillPost?.lockedContent?.vaultPdf && (
+              <TouchableOpacity 
+                style={styles.pdfButton}
+                onPress={() => Linking.openURL(skillPost.lockedContent.vaultPdf)}
+              >
+                <Text style={{ fontSize: 20, marginRight: 8 }}>📄</Text>
+                <Text style={styles.pdfText}>Download Shared Asset (PDF)</Text>
+              </TouchableOpacity>
+            )}
+
+            {!hasUnlocked && !isOwner && (
               <View style={styles.lockedOverlay}>
                 <View style={styles.lockIconContainer}>
                   <Text style={styles.lockEmoji}>🔒</Text>
@@ -248,7 +254,7 @@ export default function SkillDetailsScreen() {
               <ScrollView style={styles.barterScroll}>
                 <Text style={styles.modalSubtitle}>Select a Skill to Offer</Text>
                 {mySkillsData?.data?.map((mySkill) => {
-                  const isValueTooLow = mySkill.tokenPrice < skill.tokenPrice;
+                  const isValueTooLow = mySkill.tokenPrice < (skillPost?.tokenPrice || 0);
                   const isSelected = selectedSkillId === mySkill.id;
                   
                   return (
@@ -476,6 +482,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  ownerBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  ownerBadgeText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   auditSection: {
     marginBottom: 24,
   },
@@ -613,6 +631,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  pdfText: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   modalOverlay: {
     flex: 1,

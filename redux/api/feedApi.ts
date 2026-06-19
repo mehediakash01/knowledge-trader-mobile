@@ -74,6 +74,7 @@ export const feedApi = baseApi.injectEndpoints({
       invalidatesTags: ["SkillPosts", "MySkills", "skillPost"],
     }),
   }),
+  overrideExisting: true,
 });
 
 export const {
