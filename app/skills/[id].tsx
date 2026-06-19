@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
 import { useGetMeQuery } from '../../redux/api/authApi';
 import { useGetWalletBalanceQuery } from '../../redux/api/walletApi';
+import { useGetMySkillsQuery } from '../../redux/api/feedApi';
+import { useCreateBarterRequestMutation } from '../../redux/api/tradeApi';
+import { showToast } from '../../redux/features/ui/uiSlice';
 
 // Mock data fallback structure for the details page if not connected to a live query
 const MOCK_DATA = {
@@ -33,18 +37,45 @@ const MOCK_DATA = {
 export default function SkillDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const dispatch = useDispatch();
   const [hasUnlocked, setHasUnlocked] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
+  
+  const [isBarterModalOpen, setIsBarterModalOpen] = useState(false);
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [barterMessage, setBarterMessage] = useState("");
 
   const { data: user } = useGetMeQuery();
   const { data: walletBalance } = useGetWalletBalanceQuery(undefined);
   const activeTokenBalance = walletBalance || user?.tokenBalance || 0;
 
+  const { data: mySkillsData, isLoading: isLoadingMySkills } = useGetMySkillsQuery(user?.id as string, {
+    skip: !user?.id,
+  });
+  const [createBarterRequest, { isLoading: isSubmittingBarter }] = useCreateBarterRequestMutation();
+
   // Fallback to MOCK_DATA for the dynamic UI demonstration
-  const skill = { ...MOCK_DATA, thumbnail: 'https://via.placeholder.com/800x400' };
+  const skill = { ...MOCK_DATA, id: 'mock-skill-id', thumbnail: 'https://via.placeholder.com/800x400' };
   
   const canUnlock = activeTokenBalance >= skill.tokenPrice;
+
+  const handleSendBarter = async () => {
+    if (!selectedSkillId) return;
+    try {
+      await createBarterRequest({
+        targetPostId: (id as string) || skill.id,
+        proposal: barterMessage || "I would like to trade skills.",
+        offeredPostId: selectedSkillId
+      }).unwrap();
+      dispatch(showToast({ message: "Barter request sent successfully!", type: "success" }));
+      setIsBarterModalOpen(false);
+      setBarterMessage("");
+      setSelectedSkillId(null);
+    } catch (err) {
+      dispatch(showToast({ message: "Failed to send barter request.", type: "error" }));
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -115,7 +146,7 @@ export default function SkillDetailsScreen() {
           {!hasUnlocked && (
             <TouchableOpacity 
               style={styles.barterButton}
-              onPress={() => router.push(`/chat/${id}` as any)}
+              onPress={() => setIsBarterModalOpen(true)}
             >
               <Text style={styles.barterButtonText}>🤝 Propose Barter Request</Text>
             </TouchableOpacity>
@@ -184,6 +215,98 @@ export default function SkillDetailsScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Barter Modal */}
+      <Modal visible={isBarterModalOpen} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Propose a Barter</Text>
+              <TouchableOpacity onPress={() => setIsBarterModalOpen(false)} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingMySkills ? (
+              <ActivityIndicator color="#2563EB" style={{ marginTop: 40 }} />
+            ) : mySkillsData?.data?.length === 0 ? (
+              <View style={styles.emptySkillsContainer}>
+                <Text style={styles.emptySkillsText}>
+                  You don't have any skills posted yet to offer for trade. Post a skill to unlock barter requests!
+                </Text>
+                <TouchableOpacity 
+                  style={styles.primaryButton}
+                  onPress={() => {
+                    setIsBarterModalOpen(false);
+                    router.push('/skills/create' as any);
+                  }}
+                >
+                  <Text style={styles.primaryButtonText}>Create a Skill Post</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView style={styles.barterScroll}>
+                <Text style={styles.modalSubtitle}>Select a Skill to Offer</Text>
+                {mySkillsData?.data?.map((mySkill) => {
+                  const isValueTooLow = mySkill.tokenPrice < skill.tokenPrice;
+                  const isSelected = selectedSkillId === mySkill.id;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={mySkill.id}
+                      style={[
+                        styles.barterOption,
+                        isSelected && styles.barterOptionSelected,
+                        isValueTooLow && styles.barterOptionDisabled
+                      ]}
+                      disabled={isValueTooLow}
+                      onPress={() => setSelectedSkillId(mySkill.id)}
+                    >
+                      <View style={styles.barterOptionInfo}>
+                        <Text style={[styles.barterOptionTitle, isValueTooLow && styles.disabledText]}>
+                          {mySkill.title}
+                        </Text>
+                        <Text style={[styles.barterOptionPrice, isValueTooLow && styles.disabledText]}>
+                          Value: {mySkill.tokenPrice} KT
+                        </Text>
+                      </View>
+                      {isValueTooLow ? (
+                        <View style={styles.valueWarning}>
+                          <Text style={styles.valueWarningText}>Value too low to trade</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                
+                <Text style={styles.modalSubtitle}>Message (Optional)</Text>
+                <TextInput
+                  style={styles.messageInput}
+                  multiline
+                  placeholder="Explain why this is a fair trade..."
+                  placeholderTextColor="#9CA3AF"
+                  value={barterMessage}
+                  onChangeText={setBarterMessage}
+                />
+                
+                <TouchableOpacity 
+                  style={[styles.primaryButton, !selectedSkillId && styles.primaryButtonDisabled]}
+                  disabled={!selectedSkillId || isSubmittingBarter}
+                  onPress={handleSendBarter}
+                >
+                  {isSubmittingBarter ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Send Trade Request</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -490,5 +613,136 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptySkillsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptySkillsText: {
+    fontSize: 16,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  barterScroll: {
+    maxHeight: '100%',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  barterOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  barterOptionSelected: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  barterOptionDisabled: {
+    backgroundColor: '#F9FAFB',
+    opacity: 0.7,
+  },
+  barterOptionInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  barterOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  barterOptionPrice: {
+    fontSize: 14,
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  disabledText: {
+    color: '#9CA3AF',
+  },
+  valueWarning: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  valueWarningText: {
+    color: '#EF4444',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+  },
+  radioCircleSelected: {
+    borderColor: '#2563EB',
+    borderWidth: 6,
+  },
+  messageInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    height: 100,
+    textAlignVertical: 'top',
+    fontSize: 15,
+    color: '#111827',
+    marginBottom: 24,
   },
 });
