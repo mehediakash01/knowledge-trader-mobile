@@ -15,6 +15,7 @@ export default function SkillDetailsScreen() {
   const [imageError, setImageError] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
   const [localUnlockState, setLocalUnlockState] = useState(false);
+  const [hasLocalPendingBarter, setHasLocalPendingBarter] = useState(false);
   
   const [isBarterModalOpen, setIsBarterModalOpen] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export default function SkillDetailsScreen() {
   const isOwner = !!(currentUserId && postCreatorId && currentUserId === postCreatorId);
   const hasUnlocked = skillPost?.isAccessible || localUnlockState;
   const canUnlock = isOwner || hasUnlocked || activeTokenBalance >= (skillPost?.tokenPrice || 0);
+  const hasPendingBarter = skillPost?.hasPendingBarter || skillPost?.barterStatus === 'pending' || hasLocalPendingBarter;
 
   const handleSendBarter = async () => {
     if (!selectedSkillId || !skillPost?.id) return;
@@ -55,6 +57,7 @@ export default function SkillDetailsScreen() {
       setIsBarterModalOpen(false);
       setBarterMessage("");
       setSelectedSkillId(null);
+      setHasLocalPendingBarter(true);
     } catch (err) {
       dispatch(showToast({ message: "Failed to send barter request.", type: "error" }));
     }
@@ -124,30 +127,37 @@ export default function SkillDetailsScreen() {
               <Text style={styles.balanceText}>Your Balance: {activeTokenBalance} KT</Text>
               
               <TouchableOpacity 
-                style={[styles.primaryButton, (!canUnlock || hasUnlocked) && styles.primaryButtonDisabled]}
+                style={[styles.primaryButton, (!canUnlock || hasUnlocked || hasPendingBarter) && styles.primaryButtonDisabled]}
                 onPress={() => canUnlock && setLocalUnlockState(true)}
-                disabled={!canUnlock || hasUnlocked}
+                disabled={!canUnlock || hasUnlocked || hasPendingBarter}
               >
                 <Text style={styles.primaryButtonText}>
-                  {hasUnlocked ? "Vault Unlocked" : "Unlock Strategy Vault"}
+                  {hasUnlocked ? "Vault Unlocked" : (hasPendingBarter ? "Request Pending" : "Unlock Strategy Vault")}
                 </Text>
               </TouchableOpacity>
               
-              {!hasUnlocked && !canUnlock && (
+              {!hasUnlocked && !canUnlock && !hasPendingBarter && (
                 <Text style={styles.insufficientAlert}>
                   Insufficient Tokens. You need {(skillPost?.tokenPrice || 0) - activeTokenBalance} more tokens to unlock this vault.
                 </Text>
               )}
               
-              {!hasUnlocked && canUnlock && <Text style={styles.secureText}>🔒 Secure AI-Verified Transaction</Text>}
+              {!hasUnlocked && canUnlock && !hasPendingBarter && <Text style={styles.secureText}>🔒 Secure AI-Verified Transaction</Text>}
 
               {!hasUnlocked && (
-                <TouchableOpacity 
-                  style={styles.barterButton}
-                  onPress={() => setIsBarterModalOpen(true)}
-                >
-                  <Text style={styles.barterButtonText}>🤝 Propose Barter Request</Text>
-                </TouchableOpacity>
+                hasPendingBarter ? (
+                  <View style={styles.pendingCard}>
+                    <Text style={styles.pendingIcon}>⏳</Text>
+                    <Text style={styles.pendingDesc}>Barter request sent. Waiting for the author's response.</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.barterButton}
+                    onPress={() => setIsBarterModalOpen(true)}
+                  >
+                    <Text style={styles.barterButtonText}>🤝 Propose Barter Request</Text>
+                  </TouchableOpacity>
+                )
               )}
             </>
           )}
@@ -298,12 +308,15 @@ export default function SkillDetailsScreen() {
                 />
                 
                 <TouchableOpacity 
-                  style={[styles.primaryButton, !selectedSkillId && styles.primaryButtonDisabled]}
+                  style={[styles.primaryButton, (!selectedSkillId || isSubmittingBarter) && styles.primaryButtonDisabled]}
                   disabled={!selectedSkillId || isSubmittingBarter}
                   onPress={handleSendBarter}
                 >
                   {isSubmittingBarter ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.primaryButtonText}>Sending Request...</Text>
+                    </View>
                   ) : (
                     <Text style={styles.primaryButtonText}>Send Trade Request</Text>
                   )}
@@ -481,6 +494,27 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 15,
     fontWeight: '700',
+  },
+  pendingCard: {
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  pendingIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  pendingDesc: {
+    flex: 1,
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   ownerBadge: {
     backgroundColor: '#F3F4F6',
