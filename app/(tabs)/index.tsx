@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, ScrollView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGetAllSkillPostsQuery, useGetCategoriesQuery } from '../../redux/api/feedApi';
+import { useGetMeQuery } from '../../redux/api/authApi';
+import { useListUsersQuery, useListBazaarPostsQuery, useUpdateUserMutation, useModeratePostMutation } from '../../redux/api/adminApi';
 import EmptyState from '../../components/ui/EmptyState';
-import type { ISkillPost } from '../../types';
+import type { ISkillPost, IUser } from '../../types';
 
 const BAZAAR_MAX_PRICE = 5000;
 const BAZAAR_DEFAULT_LIMIT = 10;
@@ -11,6 +13,15 @@ const DEFAULT_CATEGORIES = ["Development", "Design", "Business", "Marketing", "D
 
 export default function FeedScreen() {
   const router = useRouter();
+  const { data: user } = useGetMeQuery();
+  const isAdmin = user?.role === 'ADMIN';
+
+  // Admin state
+  const [adminTab, setAdminTab] = useState<'USERS' | 'POSTS'>('USERS');
+  const { data: adminUsers, isLoading: loadingUsers, refetch: refetchUsers, isFetching: fetchingUsers } = useListUsersQuery(undefined, { skip: !isAdmin });
+  const { data: adminPosts, isLoading: loadingPosts, refetch: refetchPosts, isFetching: fetchingPosts } = useListBazaarPostsQuery(undefined, { skip: !isAdmin });
+  const [updateUser] = useUpdateUserMutation();
+  const [moderatePost] = useModeratePostMutation();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -140,6 +151,112 @@ export default function FeedScreen() {
           <Text style={styles.matchmakerBtnText}>🧠 AI Match</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Inline Admin Panel (ADMIN role only) ── */}
+      {isAdmin && (
+        <View style={styles.adminPanel}>
+          <View style={styles.adminHeader}>
+            <Text style={styles.adminTitle}>🛡️ System Management</Text>
+          </View>
+          <View style={styles.adminTabs}>
+            <TouchableOpacity
+              style={[styles.adminTab, adminTab === 'USERS' && styles.adminTabActive]}
+              onPress={() => setAdminTab('USERS')}
+            >
+              <Text style={[styles.adminTabText, adminTab === 'USERS' && styles.adminTabTextActive]}>Users</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.adminTab, adminTab === 'POSTS' && styles.adminTabActive]}
+              onPress={() => setAdminTab('POSTS')}
+            >
+              <Text style={[styles.adminTabText, adminTab === 'POSTS' && styles.adminTabTextActive]}>Bazaar Posts</Text>
+            </TouchableOpacity>
+          </View>
+
+          {adminTab === 'USERS' ? (
+            loadingUsers ? (
+              <ActivityIndicator color="#3B82F6" style={{ marginVertical: 16 }} />
+            ) : (
+              <FlatList
+                data={adminUsers?.data || []}
+                keyExtractor={(item) => item.id}
+                horizontal={false}
+                style={styles.adminList}
+                scrollEnabled={false}
+                refreshControl={<RefreshControl refreshing={fetchingUsers} onRefresh={refetchUsers} tintColor="#3B82F6" />}
+                ListEmptyComponent={<Text style={styles.adminEmpty}>No users found.</Text>}
+                renderItem={({ item }: { item: IUser }) => (
+                  <View style={styles.adminCard}>
+                    <View style={styles.adminCardRow}>
+                      <Text style={styles.adminCardTitle} numberOfLines={1}>{item.name || 'Unknown'}</Text>
+                      <View style={[
+                        styles.adminBadge,
+                        item.status === 'BANNED' ? styles.badgeRed
+                          : item.status === 'SUSPENDED' ? styles.badgeYellow
+                          : styles.badgeGreen
+                      ]}>
+                        <Text style={styles.adminBadgeText}>{item.status || 'ACTIVE'}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.adminCardSub}>{item.email || '—'} · {item.role} · {item.tokenBalance ?? 0} KT</Text>
+                    <View style={styles.adminActions}>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnGreen]} onPress={() => updateUser({ userId: item.id, status: 'ACTIVE' })}>
+                        <Text style={styles.adminBtnText}>Active</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnYellow]} onPress={() => updateUser({ userId: item.id, status: 'SUSPENDED' })}>
+                        <Text style={styles.adminBtnText}>Suspend</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnRed]} onPress={() => updateUser({ userId: item.id, status: 'BANNED' })}>
+                        <Text style={styles.adminBtnText}>Ban</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              />
+            )
+          ) : (
+            loadingPosts ? (
+              <ActivityIndicator color="#3B82F6" style={{ marginVertical: 16 }} />
+            ) : (
+              <FlatList
+                data={adminPosts?.data || []}
+                keyExtractor={(item) => item.id}
+                style={styles.adminList}
+                scrollEnabled={false}
+                refreshControl={<RefreshControl refreshing={fetchingPosts} onRefresh={refetchPosts} tintColor="#3B82F6" />}
+                ListEmptyComponent={<Text style={styles.adminEmpty}>No posts found.</Text>}
+                renderItem={({ item }: { item: ISkillPost }) => (
+                  <View style={styles.adminCard}>
+                    <View style={styles.adminCardRow}>
+                      <Text style={styles.adminCardTitle} numberOfLines={1}>{item.title}</Text>
+                      <View style={[
+                        styles.adminBadge,
+                        item.status === 'REJECTED' ? styles.badgeRed
+                          : item.status === 'FLAGGED' ? styles.badgeYellow
+                          : styles.badgeGreen
+                      ]}>
+                        <Text style={styles.adminBadgeText}>{item.status || 'PENDING'}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.adminCardSub}>By: {item.creator?.name || '—'} · {item.category} · {item.tokenPrice ?? 0} KT</Text>
+                    <View style={styles.adminActions}>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnGreen]} onPress={() => moderatePost({ postId: item.id, action: 'APPROVE' })}>
+                        <Text style={styles.adminBtnText}>Approve</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnYellow]} onPress={() => moderatePost({ postId: item.id, action: 'FLAG' })}>
+                        <Text style={styles.adminBtnText}>Flag</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.adminBtn, styles.btnRed]} onPress={() => moderatePost({ postId: item.id, action: 'REJECT' })}>
+                        <Text style={styles.adminBtnText}>Reject</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              />
+            )
+          )}
+        </View>
+      )}
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -590,4 +707,114 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginTop: -2,
   },
+  // ── Admin Panel Styles ──
+  adminPanel: {
+    backgroundColor: '#0F172A',
+    marginHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  adminHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  adminTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  adminTabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  adminTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  adminTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#3B82F6',
+  },
+  adminTabText: {
+    color: '#94A3B8',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  adminTabTextActive: {
+    color: '#3B82F6',
+  },
+  adminList: {
+    maxHeight: 420,
+  },
+  adminCard: {
+    backgroundColor: '#1E293B',
+    marginHorizontal: 12,
+    marginVertical: 6,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  adminCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  adminCardTitle: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+    fontSize: 14,
+    flex: 1,
+    marginRight: 8,
+  },
+  adminCardSub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  adminBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  adminBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    textTransform: 'uppercase',
+  },
+  adminActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  adminBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 7,
+    alignItems: 'center',
+  },
+  adminBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  adminEmpty: {
+    color: '#94A3B8',
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontSize: 14,
+  },
+  badgeGreen: { backgroundColor: 'rgba(16,185,129,0.25)' },
+  badgeYellow: { backgroundColor: 'rgba(245,158,11,0.25)' },
+  badgeRed: { backgroundColor: 'rgba(239,68,68,0.25)' },
+  btnGreen: { backgroundColor: '#10B981' },
+  btnYellow: { backgroundColor: '#F59E0B' },
+  btnRed: { backgroundColor: '#EF4444' },
 });
