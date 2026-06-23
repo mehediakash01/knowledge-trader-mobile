@@ -1,3 +1,4 @@
+import '../global.css';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -63,10 +64,10 @@ function RootLayoutNav() {
         if (token) {
           router.replace('/(tabs)');
         } else {
-          router.replace('/login');
+          router.replace('/welcome');
         }
       } catch (e) {
-        router.replace('/login');
+        router.replace('/welcome');
       } finally {
         setIsChecking(false);
       }
@@ -88,6 +89,7 @@ function RootLayoutNav() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="signup" options={{ headerShown: false }} />
           <Stack.Screen name="listings/request" options={{ presentation: 'modal', headerShown: false }} />
