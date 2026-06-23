@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { useGetMeQuery } from '../redux/api/authApi';
 import { useGetAIMatchesQuery } from '../redux/api/aiApi';
 import EmptyState from '../components/ui/EmptyState';
 
-// ── Profile completeness calculator (1:1 with Web Matchmaker) ─────────────────
+// â”€â”€ Profile completeness calculator (1:1 with Web Matchmaker) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getProfileStrength(user: any) {
   if (!user) return 0;
   let score = 0;
@@ -109,7 +109,7 @@ export default function MatchmakerScreen() {
 
         {/* Match Reason Logic Badge */}
         <View style={styles.reasonBox}>
-          <Text style={styles.reasonSparkle}>✦</Text>
+          <Text style={styles.reasonSparkle}>âœ¦</Text>
           <Text style={styles.reasonText}>{item.reason}</Text>
         </View>
 
@@ -121,7 +121,7 @@ export default function MatchmakerScreen() {
             onPress={() => router.push(`/listings/request?id=${post.id}` as any)}
             activeOpacity={0.7}
           >
-            <Text style={styles.tradeBtnText}>🤝 Propose Swap</Text>
+            <Text style={styles.tradeBtnText}>ðŸ¤ Propose Swap</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -141,7 +141,7 @@ export default function MatchmakerScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Text style={styles.backBtnText}>â† Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>AI Smart Matchmaker</Text>
         <View style={{ width: 50 }} />
@@ -158,11 +158,11 @@ export default function MatchmakerScreen() {
         </View>
         {!personaReady ? (
           <Text style={styles.scoreAlert}>
-            ⚠ Add at least one expertise skill and one learning path item in Profile to search direct trade swaps.
+            âš  Add at least one expertise skill and one learning path item in Profile to search direct trade swaps.
           </Text>
         ) : (
           <Text style={styles.scoreStatus}>
-            ✓ Profile ready for reciprocal trade matchmaking.
+            âœ“ Profile ready for reciprocal trade matchmaking.
           </Text>
         )}
       </View>
@@ -171,7 +171,7 @@ export default function MatchmakerScreen() {
       <View style={{ flex: 1 }}>
         {(!personaReady) ? (
           <EmptyState
-            icon="🧠"
+            icon="ðŸ§ "
             title="Persona Incomplete"
             subtitle="Complete your profile info first so our AI engine can match overlap demands."
           >
@@ -207,13 +207,13 @@ export default function MatchmakerScreen() {
                 </View>
               ) : matches.length > 0 ? (
                 <View style={styles.successBanner}>
-                  <Text style={styles.successBannerText}>✓ AI found reciprocal trade partners matching your profile!</Text>
+                  <Text style={styles.successBannerText}>âœ“ AI found reciprocal trade partners matching your profile!</Text>
                 </View>
               ) : null
             }
             ListEmptyComponent={
               <EmptyState
-                icon="🔍"
+                icon="ðŸ”"
                 title="No Matches"
                 subtitle="Try adjusting your learning path tags to find trade partners."
               />
@@ -228,12 +228,13 @@ export default function MatchmakerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#F8FAFC',
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
   },
   centerScanning: {
     flex: 1,
@@ -256,9 +257,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
-    backgroundColor: '#141414',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#222',
+    borderBottomColor: '#E2E8F0',
   },
   backBtn: {
     width: 50,
@@ -269,18 +270,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerTitle: {
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 17,
     fontWeight: 'bold',
   },
   // Score Completeness
   scoreCard: {
-    backgroundColor: '#141414',
+    backgroundColor: '#FFFFFF',
     margin: 16,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#222',
+    borderColor: '#E2E8F0',
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   scoreHeader: {
     flexDirection: 'row',
@@ -289,7 +295,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   scoreCardTitle: {
-    color: '#aaa',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -301,7 +307,7 @@ const styles = StyleSheet.create({
   },
   track: {
     height: 6,
-    backgroundColor: '#222',
+    backgroundColor: '#E2E8F0',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 10,
@@ -337,7 +343,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   fallbackBannerDesc: {
-    color: '#aaa',
+    color: '#64748B',
     fontSize: 11,
     lineHeight: 16,
   },
@@ -362,12 +368,17 @@ const styles = StyleSheet.create({
   },
   // Card
   card: {
-    backgroundColor: '#141414',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#222',
+    borderColor: '#E2E8F0',
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -383,12 +394,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#2a2a2a',
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    color: '#fff',
+    color: '#475569',
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -397,12 +408,12 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   creatorName: {
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: 'bold',
   },
   cardCategory: {
-    color: '#888',
+    color: '#64748B',
     fontSize: 11,
     marginTop: 1,
   },
@@ -417,7 +428,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   cardTitle: {
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 10,
@@ -425,12 +436,12 @@ const styles = StyleSheet.create({
   reasonBox: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: '#1b1b1b',
+    backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#222',
+    borderColor: '#E2E8F0',
   },
   reasonSparkle: {
     color: '#0ea5e9',
@@ -439,7 +450,7 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     flex: 1,
-    color: '#ccc',
+    color: '#475569',
     fontSize: 12,
     lineHeight: 18,
   },

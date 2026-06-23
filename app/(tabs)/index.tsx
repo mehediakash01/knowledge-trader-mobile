@@ -148,15 +148,15 @@ export default function FeedScreen() {
           onPress={() => router.push('/matchmaker' as any)}
           activeOpacity={0.8}
         >
-          <Text style={styles.matchmakerBtnText}>🧠 AI Match</Text>
+          <Text style={styles.matchmakerBtnText}> 🧠 AI Match</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Inline Admin Panel (ADMIN role only) ── */}
+      {/* â”€â”€ Inline Admin Panel (ADMIN role only) â”€â”€ */}
       {isAdmin && (
         <View style={styles.adminPanel}>
           <View style={styles.adminHeader}>
-            <Text style={styles.adminTitle}>🛡️ System Management</Text>
+            <Text style={styles.adminTitle}>ðŸ›¡ï¸ System Management</Text>
           </View>
           <View style={styles.adminTabs}>
             <TouchableOpacity
@@ -198,7 +198,7 @@ export default function FeedScreen() {
                         <Text style={styles.adminBadgeText}>{item.status || 'ACTIVE'}</Text>
                       </View>
                     </View>
-                    <Text style={styles.adminCardSub}>{item.email || '—'} · {item.role} · {item.tokenBalance ?? 0} KT</Text>
+                    <Text style={styles.adminCardSub}>{item.email || 'â€”'} Â· {item.role} Â· {item.tokenBalance ?? 0} KT</Text>
                     <View style={styles.adminActions}>
                       <TouchableOpacity style={[styles.adminBtn, styles.btnGreen]} onPress={() => updateUser({ userId: item.id, status: 'ACTIVE' })}>
                         <Text style={styles.adminBtnText}>Active</Text>
@@ -238,7 +238,7 @@ export default function FeedScreen() {
                         <Text style={styles.adminBadgeText}>{item.status || 'PENDING'}</Text>
                       </View>
                     </View>
-                    <Text style={styles.adminCardSub}>By: {item.creator?.name || '—'} · {item.category} · {item.tokenPrice ?? 0} KT</Text>
+                    <Text style={styles.adminCardSub}>By: {item.creator?.name || 'â€”'} Â· {item.category} Â· {item.tokenPrice ?? 0} KT</Text>
                     <View style={styles.adminActions}>
                       <TouchableOpacity style={[styles.adminBtn, styles.btnGreen]} onPress={() => moderatePost({ postId: item.id, action: 'APPROVE' })}>
                         <Text style={styles.adminBtnText}>Approve</Text>
@@ -342,7 +342,7 @@ export default function FeedScreen() {
             }
             ListEmptyComponent={
               <EmptyState 
-                icon="🔍"
+                icon="ðŸ”"
                 title="No results found"
                 subtitle="Try adjusting your filters or search terms."
               />
@@ -387,12 +387,13 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F8FAFC', // slate-50
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: '#0F172A', // slate-900
+    letterSpacing: -0.5,
   },
   headerRow: {
     flexDirection: 'row',
@@ -403,18 +404,18 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0', // slate-200
   },
   matchmakerBtn: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    backgroundColor: 'rgba(34, 211, 238, 0.1)', // cyan-400 tint
+    borderColor: 'rgba(34, 211, 238, 0.25)',
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   matchmakerBtnText: {
-    color: '#2563EB',
+    color: '#22D3EE', // cyan-400
     fontSize: 13,
     fontWeight: '700',
   },
@@ -424,18 +425,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9', // slate-100
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
-    color: '#1A1A1A',
+    color: '#0F172A',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   filterToggleBtn: {
     backgroundColor: '#FFFFFF',
@@ -444,26 +445,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   filterToggleText: {
-    color: '#2563EB',
+    color: '#22D3EE',
     fontWeight: '600',
   },
   filterPanel: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
   },
   filterTitle: {
-    color: '#666666',
+    color: '#64748B', // slate-500
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 8,
+    letterSpacing: 1,
   },
   categoryScroll: {
     flexDirection: 'row',
@@ -472,23 +474,23 @@ const styles = StyleSheet.create({
   categoryPill: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
   },
   categoryPillActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: 'rgba(34, 211, 238, 0.15)',
+    borderColor: '#22D3EE',
   },
   categoryPillText: {
-    color: '#666666',
+    color: '#64748B', // slate-500
     fontSize: 14,
     fontWeight: '500',
   },
   categoryPillTextActive: {
-    color: '#FFFFFF',
+    color: '#22D3EE',
     fontWeight: '700',
   },
   priceRow: {
@@ -500,11 +502,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   priceInput: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
-    color: '#1A1A1A',
+    color: '#0F172A',
     paddingHorizontal: 12,
     height: 40,
   },
@@ -513,7 +515,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearFiltersText: {
-    color: '#EF4444',
+    color: '#F87171', // red-400
     fontWeight: '600',
   },
   listWrapper: {
@@ -526,7 +528,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 100,
+    gap: 0,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -534,12 +537,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderColor: '#E2E8F0',
+    shadowColor: '#94A3B8',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -548,39 +551,46 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   category: {
-    color: '#2563EB',
-    fontSize: 12,
+    color: '#22D3EE', // cyan-400 accent
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   statusBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   statusText: {
-    color: '#666666',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   feedThumbnail: {
     width: '100%',
     height: 140,
     borderRadius: 12,
     marginBottom: 12,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#0F172A', // slate-900
     marginBottom: 6,
     lineHeight: 24,
+    letterSpacing: -0.2,
   },
   description: {
     fontSize: 14,
-    color: '#666666',
+    color: '#64748B', // slate-500
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -591,13 +601,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tagBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   tagText: {
-    color: '#666666',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -606,7 +618,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F1F5F9',
     paddingTop: 12,
   },
   creatorInfo: {
@@ -615,22 +627,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarPlaceholder: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E5E7EB',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E2E8F0',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   avatarImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     marginRight: 8,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   userInfo: {
-    color: '#1A1A1A',
-    fontSize: 14,
+    color: '#475569',
+    fontSize: 13,
     fontWeight: '500',
   },
   cardActions: {
@@ -639,18 +655,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   priceContainer: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    backgroundColor: 'rgba(34, 211, 238, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.2)',
   },
   price: {
-    color: '#2563EB',
-    fontSize: 14,
+    color: '#22D3EE',
+    fontSize: 13,
     fontWeight: '700',
   },
   actionBtn: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#22D3EE',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -658,7 +676,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   pagination: {
     flexDirection: 'row',
@@ -669,20 +687,20 @@ const styles = StyleSheet.create({
   pageBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   pageBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   pageBtnText: {
-    color: '#1A1A1A',
+    color: '#0F172A',
     fontWeight: '600',
   },
   pageText: {
-    color: '#666666',
+    color: '#64748B',
     fontWeight: '500',
   },
   fab: {
@@ -692,13 +710,13 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#22D3EE',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#2563EB',
+    shadowColor: '#22D3EE',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
     elevation: 8,
   },
   fabIcon: {
@@ -707,22 +725,22 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginTop: -2,
   },
-  // ── Admin Panel Styles ──
+  // â”€â”€ Admin Panel Styles â”€â”€
   adminPanel: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#F8FAFC',
     marginHorizontal: 0,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#E2E8F0',
   },
   adminHeader: {
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#E2E8F0',
   },
   adminTitle: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.3,
@@ -730,7 +748,7 @@ const styles = StyleSheet.create({
   adminTabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#E2E8F0',
   },
   adminTab: {
     flex: 1,
@@ -739,7 +757,7 @@ const styles = StyleSheet.create({
   },
   adminTabActive: {
     borderBottomWidth: 2,
-    borderBottomColor: '#3B82F6',
+    borderBottomColor: '#22D3EE',
   },
   adminTabText: {
     color: '#94A3B8',
@@ -747,19 +765,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   adminTabTextActive: {
-    color: '#3B82F6',
+    color: '#22D3EE',
   },
   adminList: {
     maxHeight: 420,
   },
   adminCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 12,
     marginVertical: 6,
     borderRadius: 10,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   adminCardRow: {
     flexDirection: 'row',
@@ -768,14 +786,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   adminCardTitle: {
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontWeight: '700',
     fontSize: 14,
     flex: 1,
     marginRight: 8,
   },
   adminCardSub: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 12,
     marginBottom: 12,
   },
@@ -787,7 +805,7 @@ const styles = StyleSheet.create({
   adminBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#1E293B',
     textTransform: 'uppercase',
   },
   adminActions: {
@@ -806,15 +824,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   adminEmpty: {
-    color: '#94A3B8',
+    color: '#64748B',
     textAlign: 'center',
     paddingVertical: 20,
     fontSize: 14,
   },
-  badgeGreen: { backgroundColor: 'rgba(16,185,129,0.25)' },
-  badgeYellow: { backgroundColor: 'rgba(245,158,11,0.25)' },
-  badgeRed: { backgroundColor: 'rgba(239,68,68,0.25)' },
-  btnGreen: { backgroundColor: '#10B981' },
-  btnYellow: { backgroundColor: '#F59E0B' },
-  btnRed: { backgroundColor: '#EF4444' },
+  badgeGreen: { backgroundColor: 'rgba(16,185,129,0.2)' },
+  badgeYellow: { backgroundColor: 'rgba(245,158,11,0.2)' },
+  badgeRed: { backgroundColor: 'rgba(239,68,68,0.2)' },
+  btnGreen: { backgroundColor: '#059669' },
+  btnYellow: { backgroundColor: '#D97706' },
+  btnRed: { backgroundColor: '#DC2626' },
 });
+

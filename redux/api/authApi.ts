@@ -39,6 +39,15 @@ export const authApi = baseApi.injectEndpoints({
       transformResponse: (response: IApiResponse<IUser>) => response.data,
       invalidatesTags: ["User"],
     }),
+    googleLogin: builder.mutation<IAuthResponse, { token: string }>({
+      query: (payload) => ({
+        url: "/auth/google-login",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (response: IApiResponse<IAuthResponse>) => response.data,
+      invalidatesTags: ["User"],
+    }),
     getMe: builder.query<IUser, void>({
       query: () => ({
         url: "/auth/me",
@@ -61,5 +70,6 @@ export const authApi = baseApi.injectEndpoints({
 export const {
   useLoginMutation,
   useRegisterMutation,
+  useGoogleLoginMutation,
   useGetMeQuery,
 } = authApi;

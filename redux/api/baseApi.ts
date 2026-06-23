@@ -62,6 +62,13 @@ export const baseApi = createApi({
       return typeof (errorData as any).message === "string" ? (errorData as any).message : "";
     };
 
+    const isAuthEndpoint = (args: string | FetchArgs): boolean => {
+      const url = typeof args === "string" ? args : args.url;
+      return url.includes("/auth/login") ||
+        url.includes("/auth/google-login") ||
+        url.includes("/users/register");
+    };
+
     const isSessionExpiredError = (error: FetchBaseQueryError): boolean => {
       if (error.status !== 401) {
         return false;
@@ -79,7 +86,7 @@ export const baseApi = createApi({
     return async (args, api, extraOptions) => {
       const result = await rawBaseQuery(args, api, extraOptions);
 
-      if ("error" in result && result.error && isSessionExpiredError(result.error)) {
+      if ("error" in result && result.error && isSessionExpiredError(result.error) && !isAuthEndpoint(args)) {
         // Clear secure storage as well as redux state
         await clearAuthStorage();
         api.dispatch(logout());

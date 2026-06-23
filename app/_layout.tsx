@@ -8,6 +8,7 @@ import { Provider } from 'react-redux';
 import { store } from '../redux/store';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -37,6 +38,12 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+  }, []);
 
   if (!loaded) {
     return null;
